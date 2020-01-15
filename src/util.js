@@ -47,3 +47,24 @@ export function loadImage(url) {
         img.crossOrigin = 'anonymous';
     });
 }
+
+export function loadFile(url) {
+    let fr = new FileReader();
+    return new Promise((resolve, reject) => {
+        let req = new XMLHttpRequest();
+        req.open('GET', url, true);
+        req.responseType = 'blob';
+        req.onload = () => {
+            fr.readAsText(req.response);
+            fr.onload = (e) => {
+                let f = e.target.result;
+                let ls = f.split(/\r?\n/);
+                resolve(ls);
+            };
+        }
+        req.onerror = () => {
+            reject(new Error(`Failed to load file's url: ${url}`));
+        };
+        req.send();
+    });
+}

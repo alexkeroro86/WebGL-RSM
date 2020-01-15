@@ -30,7 +30,6 @@ function initWebGL() {
     gl.clearColor(0.529, 0.808, 0.922, 1.0);
     gl.clearDepth(1.0);
     gl.enable(gl.DEPTH_TEST);
-    // gl.depthFunc(gl.LEQUAL);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
     // fps
@@ -46,20 +45,18 @@ function initWebGL() {
     texFolder.open();
 }
 
-async function loadAsset() {
-    await pipeline.load(gl);
-}
-
 function animate(time) {
+    // time in ms
     if (!global.start) {
         global.start = time;
     }
-    // in milliseconds
     let delta = time - global.start;
     global.start = time;
 
+    // fps
     stats.update();
 
+    // render pass
     pipeline.render(gl, delta, flag);
 
     window.requestAnimationFrame(animate);
@@ -70,12 +67,12 @@ window.onresize = () => {
 }
 
 window.onload = () => {
-    initWebGL();
+    initWebGL(); // must be called before using webgl
 
     pipeline.init(gl);
     
-    loadAsset().then(() => {
-        // rendering loop
+    pipeline.load(gl).then(() => {
+        // update loop
         window.requestAnimationFrame(animate);
     });
 }

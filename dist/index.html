@@ -22,33 +22,53 @@
     </style>
 </head>
 <body>
-    <script type='x-shader/x-vertex' id='vertex'>
+    <script type='x-shader/x-vertex' id='blinn-phong-vs'>
         #version 300 es
 
         layout(location = 0) in vec3 iPosition;
         layout(location = 1) in vec2 iTexcoord;
+        layout(location = 2) in vec3 iNormal;
 
         out vec2 vTexcoord;
+        out vec3 vNormal;
+        out vec3 vPosW;
 
         uniform mat4 uMVP;
-        
+        uniform mat4 uM;
+
         void main() {
             vTexcoord = iTexcoord;
+            vNormal = mat3(transpose(inverse(uM))) * iNormal;
+            vPosW = vec3(uM * vec4(iPosition, 1.0f));
+
             gl_Position = uMVP * vec4(iPosition, 1.0f);
         }
     </script>
-    <script type="x-shader/x-fragment" id="fragment">
+    <script type='x-shader/x-fragment' id='blinn-phong-fs'>
         #version 300 es
-        precision mediump float;
+        precision highp float;
 
         out vec4 fFragColor;
-        
-        in vec2 vTexcoord;
 
-        uniform sampler2D uTex;
-        
+        in vec2 vTexcoord;
+        in vec3 vNormal;
+        in vec3 vPosW;
+
+        uniform vec3 uEye;
+
         void main() {
-            fFragColor = vec4(texture(uTex, vTexcoord).rgb, 1.0f);
+            vec3 Nn = normalize(vNormal);
+            vec3 Vn = normalize(uEye - vPosW);
+            vec3 Ln = normalize(vec3(0.0f, 0.0f, 1.0f));
+            vec3 Hn = normalize(Ln + Vn);
+
+            vec3 albedo = vec3(1.0f, 0.0f, 0.0f);
+            vec3 ambient = vec3(0.01f, 0.01f, 0.01f);
+            vec3 diffuse = max(dot(Nn, Ln), 0.f) * albedo;
+            vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(1.0f, 1.0f, 1.0f);
+
+            fFragColor = vec4(ambient + diffuse + specular, 1.0f);
+            //fFragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
         }
     </script>
     
