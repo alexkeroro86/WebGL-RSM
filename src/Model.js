@@ -169,8 +169,9 @@ export default class Model {
         let uv = [];
         let n = [];
 
-        // per face (vertex)
+        // per face
         for (let i = 0; i < mesh.num_vertices; i += 3) {
+            // vertex
             let idx1 = vertex_idx[i];
             let idx2 = vertex_idx[i + 1];
             let idx3 = vertex_idx[i + 2];
@@ -178,24 +179,20 @@ export default class Model {
             p.push(v[idx1 * 3 + 0]); p.push(v[idx1 * 3 + 1]); p.push(v[idx1 * 3 + 2]);
             p.push(v[idx2 * 3 + 0]); p.push(v[idx2 * 3 + 1]); p.push(v[idx2 * 3 + 2]);
             p.push(v[idx3 * 3 + 0]); p.push(v[idx3 * 3 + 1]); p.push(v[idx3 * 3 + 2]);
-        }
-
-        // per face (texcoord)
-        for (let i = 0; i < mesh.num_vertices; i += 3) {
-            let idx1 = texcoord_idx[i];
-            let idx2 = texcoord_idx[i + 1];
-            let idx3 = texcoord_idx[i + 2];
+            
+            // texcoord
+            idx1 = texcoord_idx[i];
+            idx2 = texcoord_idx[i + 1];
+            idx3 = texcoord_idx[i + 2];
 
             uv.push(vt[idx1 * 2 + 0]); uv.push(vt[idx1 * 2 + 1]);
             uv.push(vt[idx2 * 2 + 0]); uv.push(vt[idx2 * 2 + 1]);
-            uv.push(vt[idx3 * 2 + 0]); uv.push(vt[idx3 * 2 + 1]); 
-        }
+            uv.push(vt[idx3 * 2 + 0]); uv.push(vt[idx3 * 2 + 1]);
 
-        // per face (normal)
-        for (let i = 0; i < mesh.num_vertices; i += 3) {
-            let idx1 = normal_idx[i];
-            let idx2 = normal_idx[i + 1];
-            let idx3 = normal_idx[i + 2];
+            // normal
+            idx1 = normal_idx[i];
+            idx2 = normal_idx[i + 1];
+            idx3 = normal_idx[i + 2];
 
             n.push(vn[idx1 * 3 + 0]); n.push(vn[idx1 * 3 + 1]); n.push(vn[idx1 * 3 + 2]);
             n.push(vn[idx2 * 3 + 0]); n.push(vn[idx2 * 3 + 1]); n.push(vn[idx2 * 3 + 2]);

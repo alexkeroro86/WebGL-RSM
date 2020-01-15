@@ -72,7 +72,7 @@ export default class Pipeline {
         gl.uniform3fv(this.blinnPhong.uniform.eye, this.value.eye);
 
         // drawing command
-        // this.dragon.render(gl);
+        this.dragon.render(gl);
         this.sponza.render(gl);
     }
 
