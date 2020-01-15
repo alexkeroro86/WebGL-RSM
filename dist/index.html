@@ -54,20 +54,26 @@
         in vec3 vNormal;
         in vec3 vPosW;
 
+        uniform sampler2D uMapKd;
         uniform vec3 uEye;
 
         void main() {
             vec3 Nn = normalize(vNormal);
             vec3 Vn = normalize(uEye - vPosW);
-            vec3 Ln = normalize(vec3(0.0f, 0.0f, 1.0f));
+            vec3 Ln = normalize(vec3(1.0f, 1.0f, 1.0f));
             vec3 Hn = normalize(Ln + Vn);
 
-            vec3 albedo = vec3(1.0f, 0.0f, 0.0f);
+            vec4 albedo = texture(uMapKd, vTexcoord);
+            if (albedo.a == 0.0f) {
+                discard;
+            }
+
             vec3 ambient = vec3(0.01f, 0.01f, 0.01f);
-            vec3 diffuse = max(dot(Nn, Ln), 0.f) * albedo;
-            vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(1.0f, 1.0f, 1.0f);
+            vec3 diffuse = max(dot(Nn, Ln), 0.f) * albedo.rgb;
+            vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(0.0f, 0.0f, 0.0f);
 
             fFragColor = vec4(ambient + diffuse + specular, 1.0f);
+            //fFragColor = vec4(albedo, 1.0f);
             //fFragColor = vec4(1.0f, 0.0f, 0.0f, 1.0f);
         }
     </script>

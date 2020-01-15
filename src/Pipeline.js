@@ -12,6 +12,7 @@ export default class Pipeline {
             uniform: {
                 mvp: null,
                 m: null,
+                mapKd: null,
                 eye: null,
             },
         };
@@ -21,7 +22,7 @@ export default class Pipeline {
             p: null,
         };
         this.value = {
-            eye: glm.vec3.fromValues(0, 0, 10),
+            eye: glm.vec3.fromValues(10, 5, 0),
         };
     }
 
@@ -36,7 +37,7 @@ export default class Pipeline {
         this.matrix.v = glm.mat4.create();
         this.matrix.p = glm.mat4.create();
         glm.mat4.lookAt(this.matrix.v, this.value.eye, glm.vec3.fromValues(0, 0, 0), glm.vec3.fromValues(0, 1, 0));
-        glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000.0);
+        glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1500.0);
 
         // shader
         this.blinnPhong.program = createShader(gl, document.getElementById('blinn-phong-vs').innerText, document.getElementById('blinn-phong-fs').innerText)
@@ -44,7 +45,14 @@ export default class Pipeline {
         // uniform location
         this.blinnPhong.uniform.mvp = gl.getUniformLocation(this.blinnPhong.program, 'uMVP');
         this.blinnPhong.uniform.m = gl.getUniformLocation(this.blinnPhong.program, 'uM');
+        this.blinnPhong.uniform.mapKd = gl.getUniformLocation(this.blinnPhong.program, 'uMapKd');
         this.blinnPhong.uniform.eye = gl.getUniformLocation(this.blinnPhong.program, 'uEye');
+
+        // set uniform
+        gl.useProgram(this.blinnPhong.program);
+        gl.uniform1i(this.blinnPhong.uniform.mapKd, 0);
+
+        gl.useProgram(null);
     }
 
     render(gl, delta, flag) {
@@ -74,7 +82,7 @@ export default class Pipeline {
         if (gl && canvas) {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1000.0);
+            glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1500.0);
             gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         }
     }

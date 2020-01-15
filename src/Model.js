@@ -1,13 +1,20 @@
 import { loadImage, loadFile } from './util';
 
-// var gl = window.WebGL2RenderingContext.prototype;
 const VERTICES_PER_FACE = 3;
+
+export class Material {
+    constructor() {
+        this.name = null;
+        this.mapKd = null;
+    }
+}
 
 export class Mesh {
     constructor() {
         this.vao = null;
         this.num_vertices = null;
         this.name = null;
+        this.material = null;
     }
 }
 
@@ -15,6 +22,7 @@ export default class Model {
 
     constructor() {
         this.meshes = [];
+        this.materials = {};
     }
 
     async load(gl, url) {
@@ -22,10 +30,10 @@ export default class Model {
         let lines = await loadFile(url);
 
         // parse obj format
-        this.loadObj(gl, url, lines);
+        await this.loadObj(gl, url, lines);
     }
 
-    loadObj(gl, url, lines) {
+    async loadObj(gl, url, lines) {
         // placeholder
         let v = [];
         let vt = [];
@@ -35,6 +43,7 @@ export default class Model {
         let normal_idx = [];
         let name = null;
         let num_face = 0;
+        let material = null;
 
         // parser
         for (let line of lines) {
@@ -48,7 +57,7 @@ export default class Model {
                 }
 
                 // export to one mesh
-                this.export(gl, name, v, vt, vn, vertex_idx, normal_idx, texcoord_idx, num_face);
+                this.export(gl, name, material, v, vt, vn, vertex_idx, normal_idx, texcoord_idx, num_face);
 
                 // flush
                 // v = [];
@@ -59,6 +68,7 @@ export default class Model {
                 normal_idx = [];
                 name = line[1];
                 num_face = 0;
+                material = null;
             }
             else if (line[0] == 'v') {
                 v.push(parseFloat(line[1]));
@@ -86,15 +96,19 @@ export default class Model {
                 }
             }
             else if (line[0] == 'mtllib') {
-                //
+                let root = url.substring(0, url.lastIndexOf('/'));
+                await this.loadMtl(gl, root + '/' + line[1], root);
+            }
+            else if (line[0] == 'usemtl') {
+                material = line[1];
             }
         }
 
         // export last object
-        this.export(gl, name, v, vt, vn, vertex_idx, normal_idx, texcoord_idx, num_face);
+        this.export(gl, name, material, v, vt, vn, vertex_idx, normal_idx, texcoord_idx, num_face);
 
-        console.log(`Load ${url}: ${this.meshes.length} mesh(es).`);
-
+        console.log(`Load model ${url}: ${this.meshes.length} mesh(es).`);
+        console.log(this.materials);
         // flush
         v = [];
         vt = [];
@@ -103,16 +117,53 @@ export default class Model {
         texcoord_idx = [];
         normal_idx = [];
         num_face = 0;
+        material = null;
     }
 
-    loadMtl() {
-        //
+    async loadMtl(gl, url, root) {
+        let lines = await loadFile(url);
+        let material = null;
+
+        for (let line of lines) {
+            line = line.split(' ');
+
+            if (line[0] == 'newmtl') {
+                // export first material
+                if (material != null) {
+                    this.materials[material.name] = material;
+                }
+                material = new Material();
+                material.name = line[1];
+            }
+            else if (line[0] == 'map_Kd') {
+                let imgUrl = root + '/' + line[1];
+                // TODO: push to promise array
+                let img = await loadImage(imgUrl);
+                material.mapKd = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, material.mapKd);
+                // FIXME: alpha channel
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+                gl.bindTexture(gl.TEXTURE_2D, null);
+                console.log(`Load image ${imgUrl}.`)
+            }
+        }
+
+        // export last material
+        this.materials[material.name] = material;
+
+        console.log(`Load material ${url}.`);
     }
 
-    export(gl, name, v, vt, vn, vertex_idx, normal_idx, texcoord_idx, num_face) {
+    export(gl, name, material, v, vt, vn, vertex_idx, normal_idx, texcoord_idx, num_face) {
         let mesh = new Mesh();
         mesh.num_vertices = num_face * 3;
         mesh.name = name;
+        mesh.material = material;
 
         let p = [];
         let uv = [];
@@ -151,7 +202,7 @@ export default class Model {
             n.push(vn[idx3 * 3 + 0]); n.push(vn[idx3 * 3 + 1]); n.push(vn[idx3 * 3 + 2]); 
         }
 
-        console.log(`Load ${name}: (${v.length / 3.0}, ${vt.length / 2.0}, ${vn.length / 3.0}), ${vertex_idx.length} vertices, ${texcoord_idx.length} texcoords, ${normal_idx.length} normals, ${num_face} faces.`);
+        console.log(`Load mesh ${name}: (${v.length / 3.0}, ${vt.length / 2.0}, ${vn.length / 3.0}), ${vertex_idx.length} vertices, ${texcoord_idx.length} texcoords, ${normal_idx.length} normals, ${num_face} faces.`);
 
         // vao
         mesh.vao = gl.createVertexArray();
@@ -195,6 +246,10 @@ export default class Model {
     render(gl) {
         for (let mesh of this.meshes) {
             gl.bindVertexArray(mesh.vao);
+            if (mesh.material) {
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, this.materials[mesh.material].mapKd);
+            }
             gl.drawArrays(gl.TRIANGLES, 0, mesh.num_vertices);
         }
     }
