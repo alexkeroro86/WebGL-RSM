@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>WebGL - Spinning Cube</title>
+    <title>WebGL - RSM</title>
 
     <style>
         html, body {
@@ -42,11 +42,11 @@
         precision mediump float;
 
         out vec4 fFragColor;
-
+        
         in vec2 vTexcoord;
 
         uniform sampler2D uTex;
-
+        
         void main() {
             fFragColor = vec4(texture(uTex, vTexcoord).rgb, 1.0f);
         }
