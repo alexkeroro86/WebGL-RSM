@@ -93,29 +93,56 @@
         uniform sampler2D uMapColor;
         uniform sampler2D uMapNormal;
         uniform sampler2D uDepthCamera;
+        uniform sampler2D uDepthLight;
         uniform vec3 uEye;
+        uniform vec3 uLight;
+        uniform mat4 uLightVP;
 
         void main() {
             ivec2 fragCoord = ivec2(gl_FragCoord.xy);
 
             vec4 albedo = texelFetch(uMapColor, fragCoord, 0);
             vec3 posW = texelFetch(uMapPosW, fragCoord, 0).rgb;
+            vec4 posL = uLightVP * vec4(posW, 1.0f);
             vec3 Nn = texelFetch(uMapNormal, fragCoord, 0).rgb;
 
             vec3 Vn = normalize(uEye - posW);
-            vec3 Ln = normalize(vec3(1.0f, 1.0f, 1.0f));
+            vec3 Ln = normalize(uLight);
             vec3 Hn = normalize(Ln + Vn);
+
+            // shadow
+            float shadowFactor = 0.0f;
+            vec3 projCoord = posL.xyz / posL.w;
+            if (projCoord.z <= 1.f) {
+                projCoord = projCoord * 0.5f + 0.5f;
+    
+                // from camera view
+                float currDepth = projCoord.z;
+                // from light view
+                float occDepth = texture(uDepthLight, projCoord.xy).r;
+                
+                // adaptive bias
+                float bias = 0.005f * tan(acos(dot(Nn, Ln)));
+                bias = clamp(bias, 0.f, 0.01f);
+    
+                if (occDepth < currDepth - bias) {
+                    shadowFactor = 0.5f;
+                }
+                else {
+                    shadowFactor = 1.0f;
+                }
+            }
 
             // blinn-phong
             vec3 ambient = vec3(0.01f, 0.01f, 0.01f);
             vec3 diffuse = max(dot(Nn, Ln), 0.f) * albedo.rgb;
             vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(0.0f, 0.0f, 0.0f);
 
-            fFragColor = vec4(ambient + diffuse + specular, 1.0f);
+            fFragColor = vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
 
             // visualize depth
-            // float z = texelFetch(uDepthCamera, fragCoord, 0).r;
-	        // z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
+            // float z = texelFetch(uDepthLight, fragCoord, 0).r;
+            // z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
             // fFragColor = vec4(z, z, z, 1.0f);
         }
     </script>

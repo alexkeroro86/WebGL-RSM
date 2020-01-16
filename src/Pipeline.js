@@ -26,11 +26,18 @@ export default class Pipeline {
         this.camera = new Camera();
         this.gbuffer = {
             camera: new Gbuffer(),
+            light: new Gbuffer(),
             program: null,
             uniform: {
                 mvp: null,
                 m: null,
             },
+        };
+        this.light = {
+            position: null,
+            resolution: 4096,
+            p: null,
+            v: null,
         };
         this.deferred = {
             program: null,
@@ -39,7 +46,10 @@ export default class Pipeline {
                 mapColor: null,
                 mapNormal: null,
                 depthCamera: null,
+                depthLight: null,
                 eye: null,
+                light: null,
+                lightVP: null,
             },
         };
     }
@@ -54,7 +64,13 @@ export default class Pipeline {
         this.matrix.m = glm.mat4.create();
         this.matrix.v = this.camera.getV();
         this.matrix.p = glm.mat4.create();
-        glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1800.0);
+        glm.mat4.perspective(this.matrix.p, Math.PI * 0.33, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1800.0);
+
+        this.light.position = [100.0, 2000.0, 100.0];
+        this.light.p = glm.mat4.create();
+        this.light.v = glm.mat4.create();
+        glm.mat4.ortho(this.light.p, -2000, 2000, -2000, 2000, 0.1, 2500.0);
+        glm.mat4.lookAt(this.light.v, this.light.position, [0, 0, 0], [0, 1, 0]);
 
         // // shader
         // this.blinnPhong.program = createShader(gl, document.getElementById('blinn-phong-vs').innerText, document.getElementById('blinn-phong-fs').innerText);
@@ -93,7 +109,10 @@ export default class Pipeline {
         this.deferred.uniform.mapColor = gl.getUniformLocation(this.deferred.program, 'uMapColor');
         this.deferred.uniform.mapNormal = gl.getUniformLocation(this.deferred.program, 'uMapNormal');
         this.deferred.uniform.depthCamera = gl.getUniformLocation(this.deferred.program, 'uDepthCamera');
+        this.deferred.uniform.depthLight = gl.getUniformLocation(this.deferred.program, 'uDepthLight');
         this.deferred.uniform.eye = gl.getUniformLocation(this.deferred.program, 'uEye');
+        this.deferred.uniform.light = gl.getUniformLocation(this.deferred.program, 'uLight');
+        this.deferred.uniform.lightVP = gl.getUniformLocation(this.deferred.program, 'uLightVP');
 
         // set uniform
         gl.useProgram(this.deferred.program);
@@ -101,47 +120,50 @@ export default class Pipeline {
         gl.uniform1i(this.deferred.uniform.mapColor, 1);
         gl.uniform1i(this.deferred.uniform.mapNormal, 2);
         gl.uniform1i(this.deferred.uniform.depthCamera, 3);
+        gl.uniform1i(this.deferred.uniform.depthLight, 4);
+        gl.uniform3fv(this.deferred.uniform.light, this.light.position);
 
         gl.useProgram(null);
 
         // gbuffer
-        this.gbuffer.camera.init(gl);
+        this.gbuffer.camera.init(gl, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        this.gbuffer.light.init(gl, this.light.resolution, this.light.resolution);
     }
 
-    render(gl, delta, flag) {
-        // gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    forwardPass(gl) {
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // gl.useProgram(this.blinnPhong.program);
+        gl.useProgram(this.blinnPhong.program);
 
-        // // set uniform
-        // let mvp = glm.mat4.create();
-        // this.matrix.v = this.camera.getV();
-        // glm.mat4.multiply(mvp, this.matrix.p, this.matrix.v);
-        // glm.mat4.multiply(mvp, mvp, this.matrix.m);
+        // set uniform
+        let mvp = glm.mat4.create();
+        this.matrix.v = this.camera.getV();
+        glm.mat4.multiply(mvp, this.matrix.p, this.matrix.v);
+        glm.mat4.multiply(mvp, mvp, this.matrix.m);
 
-        // gl.uniformMatrix4fv(this.blinnPhong.uniform.mvp, false, mvp);
-        // gl.uniformMatrix4fv(this.blinnPhong.uniform.m, false, this.matrix.m);
-        // gl.uniform3fv(this.blinnPhong.uniform.eye, this.camera.move.position);
+        gl.uniformMatrix4fv(this.blinnPhong.uniform.mvp, false, mvp);
+        gl.uniformMatrix4fv(this.blinnPhong.uniform.m, false, this.matrix.m);
+        gl.uniform3fv(this.blinnPhong.uniform.eye, this.camera.move.position);
 
-        // // drawing command
-        // this.sponza.render(gl);
+        // drawing command
+        this.sponza.render(gl);
 
-        // // set uniform
-        // let dragonM = glm.mat4.create();
-        // glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
-        // glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
-        // mvp = glm.mat4.create();
-        // glm.mat4.multiply(mvp, this.matrix.p, this.matrix.v);
-        // glm.mat4.multiply(mvp, mvp, dragonM);
+        // set uniform
+        let dragonM = glm.mat4.create();
+        glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
+        glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
+        mvp = glm.mat4.create();
+        glm.mat4.multiply(mvp, this.matrix.p, this.matrix.v);
+        glm.mat4.multiply(mvp, mvp, dragonM);
 
-        // gl.uniformMatrix4fv(this.blinnPhong.uniform.mvp, false, mvp);
-        // gl.uniformMatrix4fv(this.blinnPhong.uniform.m, false, dragonM);
+        gl.uniformMatrix4fv(this.blinnPhong.uniform.mvp, false, mvp);
+        gl.uniformMatrix4fv(this.blinnPhong.uniform.m, false, dragonM);
 
-        // // drawing command
-        // this.dragon.render(gl);
-        // this.sponza.render(gl);
-
-        // [gbuffer pass]
+        // drawing command
+        this.dragon.render(gl);
+    }
+    cameraPass(gl) {
         this.gbuffer.camera.bind(gl);
 
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -176,14 +198,54 @@ export default class Pipeline {
         this.dragon.render(gl);
 
         this.gbuffer.camera.unbind(gl);
+    }
+    lightPass(gl) {
+        this.gbuffer.light.bind(gl);
 
-        // [deferred pass]
+        gl.viewport(0, 0, this.light.resolution, this.light.resolution);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.useProgram(this.gbuffer.program);
+
+        // set uniform
+        let mvp = glm.mat4.create();
+        glm.mat4.multiply(mvp, this.light.p, this.light.v);
+        glm.mat4.multiply(mvp, mvp, this.matrix.m);
+
+        gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
+        gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, this.matrix.m);
+
+        // drawing command
+        this.sponza.render(gl);
+
+        // set uniform
+        let dragonM = glm.mat4.create();
+        glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
+        glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
+        mvp = glm.mat4.create();
+        glm.mat4.multiply(mvp, this.light.p, this.light.v);
+        glm.mat4.multiply(mvp, mvp, dragonM);
+
+        gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
+        gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, dragonM);
+
+        // drawing command
+        this.dragon.render(gl);
+
+        this.gbuffer.light.unbind(gl);
+    }
+    deferredPass(gl) {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         gl.useProgram(this.deferred.program);
 
         // set uniform
+        let vp = glm.mat4.create();
+        glm.mat4.multiply(vp, this.light.p, this.light.v);
+
+        gl.uniformMatrix4fv(this.deferred.uniform.lightVP, false, vp);
+
         gl.uniform3fv(this.deferred.uniform.eye, this.camera.move.position);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.position);
@@ -193,8 +255,19 @@ export default class Pipeline {
         gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.normal);
         gl.activeTexture(gl.TEXTURE3);
         gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.depth);
+        gl.activeTexture(gl.TEXTURE4);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.light.renderTarget.depth);
 
+        // drawing command
         Gbuffer.render(gl);
+    }
+
+    render(gl, delta, flag) {
+        // this.forwardPass(gl);
+
+        this.cameraPass(gl);
+        this.lightPass(gl);
+        this.deferredPass(gl);
     }
 
     resize(gl) {
