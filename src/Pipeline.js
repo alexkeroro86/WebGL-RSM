@@ -35,7 +35,7 @@ export default class Pipeline {
         this.matrix.m = glm.mat4.create();
         this.matrix.v = this.camera.getV();
         this.matrix.p = glm.mat4.create();
-        glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1500.0);
+        glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1800.0);
 
         // shader
         this.blinnPhong.program = createShader(gl, document.getElementById('blinn-phong-vs').innerText, document.getElementById('blinn-phong-fs').innerText)
@@ -81,7 +81,7 @@ export default class Pipeline {
         if (gl && canvas) {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1500.0);
+            glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1800.0);
             gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         }
     }
