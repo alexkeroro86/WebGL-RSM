@@ -42,14 +42,14 @@ export default class Pipeline {
         this.deferred = {
             program: null,
             uniform: {
-                mapPosW: null,
-                mapColor: null,
-                mapNormal: null,
-                depthCamera: null,
-                depthLight: null,
+                camMapPosW: null,
+                camMapColor: null,
+                camMapNormal: null,
+                camMapDepth: null,
+                litMapDepth: null,
                 eye: null,
                 light: null,
-                lightVP: null,
+                litMatVP: null,
             },
         };
     }
@@ -72,7 +72,7 @@ export default class Pipeline {
         glm.mat4.ortho(this.light.p, -2000, 2000, -2000, 2000, 0.1, 2500.0);
         glm.mat4.lookAt(this.light.v, this.light.position, [0, 0, 0], [0, 1, 0]);
 
-        // // shader
+        // // forward rendering
         // this.blinnPhong.program = createShader(gl, document.getElementById('blinn-phong-vs').innerText, document.getElementById('blinn-phong-fs').innerText);
 
         // // uniform location
@@ -87,7 +87,7 @@ export default class Pipeline {
 
         // gl.useProgram(null);
 
-        // shader
+        // geometry buffer
         this.gbuffer.program = createShader(gl, document.getElementById('gbuffer-vs').innerText, document.getElementById('gbuffer-fs').innerText);
 
         // uniform location
@@ -101,26 +101,26 @@ export default class Pipeline {
 
         gl.useProgram(null);
 
-        // shader
+        // deferred rendering
         this.deferred.program = createShader(gl, document.getElementById('deferred-vs').innerText, document.getElementById('deferred-fs').innerText);
 
         // uniform location
-        this.deferred.uniform.mapPosW = gl.getUniformLocation(this.deferred.program, 'uMapPosW');
-        this.deferred.uniform.mapColor = gl.getUniformLocation(this.deferred.program, 'uMapColor');
-        this.deferred.uniform.mapNormal = gl.getUniformLocation(this.deferred.program, 'uMapNormal');
-        this.deferred.uniform.depthCamera = gl.getUniformLocation(this.deferred.program, 'uDepthCamera');
-        this.deferred.uniform.depthLight = gl.getUniformLocation(this.deferred.program, 'uDepthLight');
+        this.deferred.uniform.camMapPosW = gl.getUniformLocation(this.deferred.program, 'uCamMapPosW');
+        this.deferred.uniform.camMapColor = gl.getUniformLocation(this.deferred.program, 'uCamMapColor');
+        this.deferred.uniform.camMapNormal = gl.getUniformLocation(this.deferred.program, 'uCamMapNormal');
+        this.deferred.uniform.camMapDepth = gl.getUniformLocation(this.deferred.program, 'uCamMapDepth');
+        this.deferred.uniform.litMapDepth = gl.getUniformLocation(this.deferred.program, 'uLitMapDepth');
         this.deferred.uniform.eye = gl.getUniformLocation(this.deferred.program, 'uEye');
         this.deferred.uniform.light = gl.getUniformLocation(this.deferred.program, 'uLight');
-        this.deferred.uniform.lightVP = gl.getUniformLocation(this.deferred.program, 'uLightVP');
+        this.deferred.uniform.litMatVP = gl.getUniformLocation(this.deferred.program, 'uLitMatVP');
 
         // set uniform
         gl.useProgram(this.deferred.program);
-        gl.uniform1i(this.deferred.uniform.mapPosW, 0);
-        gl.uniform1i(this.deferred.uniform.mapColor, 1);
-        gl.uniform1i(this.deferred.uniform.mapNormal, 2);
-        gl.uniform1i(this.deferred.uniform.depthCamera, 3);
-        gl.uniform1i(this.deferred.uniform.depthLight, 4);
+        gl.uniform1i(this.deferred.uniform.camMapPosW, 0);
+        gl.uniform1i(this.deferred.uniform.camMapColor, 1);
+        gl.uniform1i(this.deferred.uniform.camMapNormal, 2);
+        gl.uniform1i(this.deferred.uniform.camMapDepth, 3);
+        gl.uniform1i(this.deferred.uniform.litMapDepth, 4);
         gl.uniform3fv(this.deferred.uniform.light, this.light.position);
 
         gl.useProgram(null);
@@ -244,7 +244,7 @@ export default class Pipeline {
         let vp = glm.mat4.create();
         glm.mat4.multiply(vp, this.light.p, this.light.v);
 
-        gl.uniformMatrix4fv(this.deferred.uniform.lightVP, false, vp);
+        gl.uniformMatrix4fv(this.deferred.uniform.litMatVP, false, vp);
 
         gl.uniform3fv(this.deferred.uniform.eye, this.camera.move.position);
         gl.activeTexture(gl.TEXTURE0);

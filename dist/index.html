@@ -89,22 +89,22 @@
 
         in vec2 vTexcoord;
 
-        uniform sampler2D uMapPosW;
-        uniform sampler2D uMapColor;
-        uniform sampler2D uMapNormal;
-        uniform sampler2D uDepthCamera;
-        uniform sampler2D uDepthLight;
+        uniform sampler2D uCamMapPosW;
+        uniform sampler2D uCamMapColor;
+        uniform sampler2D uCamMapNormal;
+        uniform sampler2D uCamMapDepth;
+        uniform sampler2D uLitMapDepth;
         uniform vec3 uEye;
         uniform vec3 uLight;
-        uniform mat4 uLightVP;
+        uniform mat4 uLitMatVP;
 
         void main() {
             ivec2 fragCoord = ivec2(gl_FragCoord.xy);
 
-            vec4 albedo = texelFetch(uMapColor, fragCoord, 0);
-            vec3 posW = texelFetch(uMapPosW, fragCoord, 0).rgb;
-            vec4 posL = uLightVP * vec4(posW, 1.0f);
-            vec3 Nn = texelFetch(uMapNormal, fragCoord, 0).rgb;
+            vec4 albedo = texelFetch(uCamMapColor, fragCoord, 0);
+            vec3 posW = texelFetch(uCamMapPosW, fragCoord, 0).rgb;
+            vec4 posL = uLitMatVP * vec4(posW, 1.0f);
+            vec3 Nn = texelFetch(uCamMapNormal, fragCoord, 0).rgb;
 
             vec3 Vn = normalize(uEye - posW);
             vec3 Ln = normalize(uLight);
@@ -119,7 +119,7 @@
                 // from camera view
                 float currDepth = projCoord.z;
                 // from light view
-                float occDepth = texture(uDepthLight, projCoord.xy).r;
+                float occDepth = texture(uLitMapDepth, projCoord.xy).r;
                 
                 // adaptive bias
                 float bias = 0.005f * tan(acos(dot(Nn, Ln)));
@@ -141,7 +141,7 @@
             fFragColor = vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
 
             // visualize depth
-            // float z = texelFetch(uDepthLight, fragCoord, 0).r;
+            // float z = texelFetch(uLitMapDepth, fragCoord, 0).r;
             // z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
             // fFragColor = vec4(z, z, z, 1.0f);
         }
