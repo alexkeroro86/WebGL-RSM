@@ -56,6 +56,9 @@ function animate(time) {
     // fps
     stats.update();
 
+    // camera
+    pipeline.camera.update(delta);
+
     // render pass
     pipeline.render(gl, delta, flag);
 
@@ -70,6 +73,8 @@ window.onload = () => {
     initWebGL(); // must be called before using webgl
 
     pipeline.init(gl);
+    document.addEventListener('keydown', pipeline.camera.keydown.bind(pipeline.camera));
+    document.addEventListener('keyup', pipeline.camera.keyup.bind(pipeline.camera));
     
     pipeline.load(gl).then(() => {
         // update loop

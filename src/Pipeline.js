@@ -1,6 +1,7 @@
 import * as glm from 'gl-matrix';
 import Model from './Model';
 import { createShader, loadImage } from './util';
+import Camera from './Camera';
 
 export default class Pipeline {
 
@@ -21,9 +22,7 @@ export default class Pipeline {
             v: null,
             p: null,
         };
-        this.value = {
-            eye: glm.vec3.fromValues(10, 5, 0),
-        };
+        this.camera = new Camera();
     }
 
     async load(gl) {
@@ -34,9 +33,8 @@ export default class Pipeline {
     init(gl) {
         // matrix
         this.matrix.m = glm.mat4.create();
-        this.matrix.v = glm.mat4.create();
+        this.matrix.v = this.camera.getV();
         this.matrix.p = glm.mat4.create();
-        glm.mat4.lookAt(this.matrix.v, this.value.eye, glm.vec3.fromValues(0, 0, 0), glm.vec3.fromValues(0, 1, 0));
         glm.mat4.perspective(this.matrix.p, Math.PI * 0.5, gl.drawingBufferWidth / gl.drawingBufferHeight, 0.1, 1500.0);
 
         // shader
@@ -64,12 +62,13 @@ export default class Pipeline {
         // glm.mat4.rotateX(this.matrix.m, this.matrix.m, delta * 0.01 * Math.PI / 180.0);
         // glm.mat4.rotateY(this.matrix.m, this.matrix.m, delta * 0.02 * Math.PI / 180.0);
         let mvp = glm.mat4.create();
+        this.matrix.v = this.camera.getV();
         glm.mat4.multiply(mvp, this.matrix.p, this.matrix.v);
         glm.mat4.multiply(mvp, mvp, this.matrix.m);
 
         gl.uniformMatrix4fv(this.blinnPhong.uniform.mvp, false, mvp);
         gl.uniformMatrix4fv(this.blinnPhong.uniform.m, false, this.matrix.m);
-        gl.uniform3fv(this.blinnPhong.uniform.eye, this.value.eye);
+        gl.uniform3fv(this.blinnPhong.uniform.eye, this.camera.move.position);
 
         // drawing command
         this.dragon.render(gl);
