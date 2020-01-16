@@ -26,6 +26,10 @@ function initWebGL() {
         alert('WebGL 2 not available');
     }
 
+    // get extension
+    gl.getExtension('EXT_color_buffer_float');
+    // gl.getExtension('WEBGL_depth_texture');
+
     // webgl setting
     gl.clearColor(0.529, 0.808, 0.922, 1.0);
     gl.clearDepth(1.0);
