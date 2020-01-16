@@ -6,7 +6,7 @@ export default class Camera {
     constructor() {
         this.move = {
             position: glm.vec3.fromValues(10, 5, 0),
-            speed: 40.0,
+            speed: 80.0,
             left: false,
             right: false,
             forward: false,

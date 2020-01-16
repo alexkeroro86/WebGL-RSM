@@ -59,8 +59,6 @@ export default class Pipeline {
         gl.useProgram(this.blinnPhong.program);
 
         // set uniform
-        // glm.mat4.rotateX(this.matrix.m, this.matrix.m, delta * 0.01 * Math.PI / 180.0);
-        // glm.mat4.rotateY(this.matrix.m, this.matrix.m, delta * 0.02 * Math.PI / 180.0);
         let mvp = glm.mat4.create();
         this.matrix.v = this.camera.getV();
         glm.mat4.multiply(mvp, this.matrix.p, this.matrix.v);
@@ -71,8 +69,21 @@ export default class Pipeline {
         gl.uniform3fv(this.blinnPhong.uniform.eye, this.camera.move.position);
 
         // drawing command
-        this.dragon.render(gl);
         this.sponza.render(gl);
+
+        // set uniform
+        let dragonM = glm.mat4.create();
+        glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
+        glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
+        mvp = glm.mat4.create();
+        glm.mat4.multiply(mvp, this.matrix.p, this.matrix.v);
+        glm.mat4.multiply(mvp, mvp, dragonM);
+
+        gl.uniformMatrix4fv(this.blinnPhong.uniform.mvp, false, mvp);
+        gl.uniformMatrix4fv(this.blinnPhong.uniform.m, false, dragonM);
+
+        // drawing command
+        this.dragon.render(gl);
     }
 
     resize(gl) {

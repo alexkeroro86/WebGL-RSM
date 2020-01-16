@@ -137,7 +137,7 @@ export default class Model {
             }
             else if (line[0] == 'map_Kd') {
                 let imgUrl = root + '/' + line[1];
-                // TODO: push to promise array
+                // TODO: push to promise array to improve performance
                 let img = await loadImage(imgUrl);
                 material.mapKd = gl.createTexture();
                 gl.bindTexture(gl.TEXTURE_2D, material.mapKd);
