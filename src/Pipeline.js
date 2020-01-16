@@ -9,15 +9,15 @@ export default class Pipeline {
     constructor() {
         this.dragon = new Model();
         this.sponza = new Model();
-        this.blinnPhong = {
-            program: null,
-            uniform: {
-                mvp: null,
-                m: null,
-                mapKd: null,
-                eye: null,
-            },
-        };
+        // this.blinnPhong = {
+        //     program: null,
+        //     uniform: {
+        //         mvp: null,
+        //         m: null,
+        //         mapKd: null,
+        //         eye: null,
+        //     },
+        // };
         this.matrix = {
             m: null,
             v: null,
