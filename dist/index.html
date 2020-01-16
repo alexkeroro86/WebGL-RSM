@@ -114,9 +114,9 @@
             fFragColor = vec4(ambient + diffuse + specular, 1.0f);
 
             // visualize depth
-            float z = texelFetch(uDepthCamera, fragCoord, 0).r;
-	        z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
-            fFragColor = vec4(z, z, z, 1.0f);
+            // float z = texelFetch(uDepthCamera, fragCoord, 0).r;
+	        // z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
+            // fFragColor = vec4(z, z, z, 1.0f);
         }
     </script>
 
