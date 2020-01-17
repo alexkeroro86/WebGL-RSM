@@ -31,6 +31,8 @@ export default class Pipeline {
             uniform: {
                 mvp: null,
                 m: null,
+                mapKd: null,
+                useTech: null,
             },
         };
         this.light = {
@@ -98,10 +100,13 @@ export default class Pipeline {
         this.gbuffer.uniform.mvp = gl.getUniformLocation(this.gbuffer.program, 'uMVP');
         this.gbuffer.uniform.m = gl.getUniformLocation(this.gbuffer.program, 'uM');
         this.gbuffer.uniform.mapKd = gl.getUniformLocation(this.gbuffer.program, 'uMapKd');
+        this.gbuffer.uniform.useTech = gl.getUniformLocation(this.gbuffer.program, 'uUseTech');
 
         // set uniform
         gl.useProgram(this.gbuffer.program);
         gl.uniform1i(this.gbuffer.uniform.mapKd, 0);
+        this.dragon.useTech = this.gbuffer.uniform.useTech;
+        this.sponza.useTech = this.gbuffer.uniform.useTech;
 
         gl.useProgram(null);
 

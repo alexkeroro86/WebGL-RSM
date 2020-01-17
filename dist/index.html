@@ -57,6 +57,7 @@
         in vec4 vPosW;
 
         uniform sampler2D uMapKd;
+        uniform float uUseTech;
 
         void main() {
             fFragColor = texture(uMapKd, vTexcoord);
@@ -64,7 +65,7 @@
                 discard;
             }
             fFragPosW = vPosW;
-            fFragNormal = vec4(normalize(vNormal), 1.0f);
+            fFragNormal = vec4(normalize(vNormal), uUseTech);
         }
     </script>
 
@@ -174,6 +175,7 @@
             vec3 posW = texelFetch(uCamMapPosW, fragCoord, 0).rgb;
             vec4 posL = uLitMatVP * vec4(posW, 1.0f);
             vec3 Nn = texelFetch(uCamMapNormal, fragCoord, 0).rgb;
+            float techChannel = texelFetch(uCamMapNormal, fragCoord, 0).a;
 
             vec3 Vn = normalize(uEye - posW);
             vec3 Ln = normalize(uLight);
@@ -184,7 +186,7 @@
 
             // reflective shadow map
             vec3 rsm = vec3(0.f, 0.f, 0.f);
-            if (uUseRSM == 1) {
+            if (uUseRSM == 1 && techChannel > 0.5f) {
                 rsm = RSM(posW, posL, Nn);
             }
 
@@ -199,7 +201,7 @@
             // float z = texelFetch(uLitMapDepth, fragCoord, 0).r;
             // z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
             // fFragColor = vec4(z, z, z, 1.0f);
-            //fFragColor = vec4(rsm, 1.0f);
+            // fFragColor = vec4(techChannel, 0.f, 0.f, 1.0f);
         }
     </script>
 
