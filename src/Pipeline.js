@@ -43,7 +43,7 @@ export default class Pipeline {
         };
         this.light = {
             position: null,
-            resolution: 4096,
+            resolution: 2048,
             p: null,  // shadow mapping
             v: null,
         };
@@ -328,42 +328,43 @@ export default class Pipeline {
         this.gbuffer.camera.unbind(gl);
     }
     lightPass(gl, flag) {
+        // reflective shadow mapping
+        this.gbuffer.light.bind(gl);
+
+        gl.viewport(0, 0, this.light.resolution, this.light.resolution);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.useProgram(this.gbuffer.program);
+
+        // set uniform
+        let mvp = glm.mat4.create();
+        glm.mat4.multiply(mvp, this.light.p, this.light.v);
+        glm.mat4.multiply(mvp, mvp, this.matrix.m);
+
+        gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
+        gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, this.matrix.m);
+
+        // drawing command
+        this.sponza.render(gl);
+
+        // set uniform
+        let dragonM = glm.mat4.create();
+        glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
+        glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
+        mvp = glm.mat4.create();
+        glm.mat4.multiply(mvp, this.light.p, this.light.v);
+        glm.mat4.multiply(mvp, mvp, dragonM);
+
+        gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
+        gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, dragonM);
+
+        // drawing command
+        this.dragon.render(gl);
+
+        this.gbuffer.light.unbind(gl);
+        
         // shadow mapping
         if (flag.useCSM == false) {
-            this.gbuffer.light.bind(gl);
-
-            gl.viewport(0, 0, this.light.resolution, this.light.resolution);
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-            gl.useProgram(this.gbuffer.program);
-
-            // set uniform
-            let mvp = glm.mat4.create();
-            glm.mat4.multiply(mvp, this.light.p, this.light.v);
-            glm.mat4.multiply(mvp, mvp, this.matrix.m);
-
-            gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
-            gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, this.matrix.m);
-
-            // drawing command
-            this.sponza.render(gl);
-
-            // set uniform
-            let dragonM = glm.mat4.create();
-            glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
-            glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
-            mvp = glm.mat4.create();
-            glm.mat4.multiply(mvp, this.light.p, this.light.v);
-            glm.mat4.multiply(mvp, mvp, dragonM);
-
-            gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
-            gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, dragonM);
-
-            // drawing command
-            this.dragon.render(gl);
-
-            this.gbuffer.light.unbind(gl);
-
             return;
         }
 
