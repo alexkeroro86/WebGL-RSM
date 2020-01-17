@@ -159,6 +159,10 @@
                 vec3 litPhi = texture(uLitMapColor, sampleUV).rgb;
                 vec3 litPosW = texture(uLitMapPosW, sampleUV).rgb;
                 vec3 litNormal = texture(uLitMapNormal, sampleUV).rgb;
+                float useTech = texture(uLitMapNormal, sampleUV).a;
+                if (useTech < 0.5f) {
+                    continue;
+                }
 
                 vec3 L = posW - litPosW;
                 vec3 Ln = normalize(L);
@@ -175,7 +179,6 @@
             vec3 posW = texelFetch(uCamMapPosW, fragCoord, 0).rgb;
             vec4 posL = uLitMatVP * vec4(posW, 1.0f);
             vec3 Nn = texelFetch(uCamMapNormal, fragCoord, 0).rgb;
-            float techChannel = texelFetch(uCamMapNormal, fragCoord, 0).a;
 
             vec3 Vn = normalize(uEye - posW);
             vec3 Ln = normalize(uLight);
@@ -186,7 +189,7 @@
 
             // reflective shadow map
             vec3 rsm = vec3(0.f, 0.f, 0.f);
-            if (uUseRSM == 1 && techChannel > 0.5f) {
+            if (uUseRSM == 1) {
                 rsm = RSM(posW, posL, Nn);
             }
 
