@@ -46,10 +46,14 @@ export default class Pipeline {
                 camMapColor: null,
                 camMapNormal: null,
                 camMapDepth: null,
+                litMapPosW: null,
+                litMapColor: null,
+                litMapNormal: null,
                 litMapDepth: null,
                 eye: null,
                 light: null,
                 litMatVP: null,
+                useRSM: null,
             },
         };
     }
@@ -110,9 +114,13 @@ export default class Pipeline {
         this.deferred.uniform.camMapNormal = gl.getUniformLocation(this.deferred.program, 'uCamMapNormal');
         this.deferred.uniform.camMapDepth = gl.getUniformLocation(this.deferred.program, 'uCamMapDepth');
         this.deferred.uniform.litMapDepth = gl.getUniformLocation(this.deferred.program, 'uLitMapDepth');
+        this.deferred.uniform.litMapPosW = gl.getUniformLocation(this.deferred.program, 'uLitMapPosW');
+        this.deferred.uniform.litMapColor = gl.getUniformLocation(this.deferred.program, 'uLitMapColor');
+        this.deferred.uniform.litMapNormal = gl.getUniformLocation(this.deferred.program, 'uLitMapNormal');
         this.deferred.uniform.eye = gl.getUniformLocation(this.deferred.program, 'uEye');
         this.deferred.uniform.light = gl.getUniformLocation(this.deferred.program, 'uLight');
         this.deferred.uniform.litMatVP = gl.getUniformLocation(this.deferred.program, 'uLitMatVP');
+        this.deferred.uniform.useRSM = gl.getUniformLocation(this.deferred.program, 'uUseRSM');
 
         // set uniform
         gl.useProgram(this.deferred.program);
@@ -121,6 +129,9 @@ export default class Pipeline {
         gl.uniform1i(this.deferred.uniform.camMapNormal, 2);
         gl.uniform1i(this.deferred.uniform.camMapDepth, 3);
         gl.uniform1i(this.deferred.uniform.litMapDepth, 4);
+        gl.uniform1i(this.deferred.uniform.litMapPosW, 5);
+        gl.uniform1i(this.deferred.uniform.litMapColor, 6);
+        gl.uniform1i(this.deferred.uniform.litMapNormal, 7);
         gl.uniform3fv(this.deferred.uniform.light, this.light.position);
 
         gl.useProgram(null);
@@ -234,7 +245,7 @@ export default class Pipeline {
 
         this.gbuffer.light.unbind(gl);
     }
-    deferredPass(gl) {
+    deferredPass(gl, flag) {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -245,6 +256,7 @@ export default class Pipeline {
         glm.mat4.multiply(vp, this.light.p, this.light.v);
 
         gl.uniformMatrix4fv(this.deferred.uniform.litMatVP, false, vp);
+        gl.uniform1i(this.deferred.uniform.useRSM, flag.useRSM);
 
         gl.uniform3fv(this.deferred.uniform.eye, this.camera.move.position);
         gl.activeTexture(gl.TEXTURE0);
@@ -257,6 +269,12 @@ export default class Pipeline {
         gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.depth);
         gl.activeTexture(gl.TEXTURE4);
         gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.light.renderTarget.depth);
+        gl.activeTexture(gl.TEXTURE5);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.light.renderTarget.position);
+        gl.activeTexture(gl.TEXTURE6);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.light.renderTarget.color);
+        gl.activeTexture(gl.TEXTURE7);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.light.renderTarget.normal);
 
         // drawing command
         Gbuffer.render(gl);
@@ -265,9 +283,14 @@ export default class Pipeline {
     render(gl, delta, flag) {
         // this.forwardPass(gl);
 
+        // update light
+        this.light.position = [flag.litPosX, flag.litPosY, flag.litPosZ];
+        this.light.v = glm.mat4.create();
+        glm.mat4.lookAt(this.light.v, this.light.position, [0, 0, 0], [0, 1, 0]);
+
         this.cameraPass(gl);
         this.lightPass(gl);
-        this.deferredPass(gl);
+        this.deferredPass(gl, flag);
     }
 
     resize(gl) {

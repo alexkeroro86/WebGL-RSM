@@ -94,9 +94,78 @@
         uniform sampler2D uCamMapNormal;
         uniform sampler2D uCamMapDepth;
         uniform sampler2D uLitMapDepth;
+        uniform sampler2D uLitMapPosW;
+        uniform sampler2D uLitMapColor;
+        uniform sampler2D uLitMapNormal;
         uniform vec3 uEye;
         uniform vec3 uLight;
         uniform mat4 uLitMatVP;
+
+        uniform int uUseRSM;
+
+        const float PI = 3.1415926f;
+
+        float checkShadow(vec4 posL, vec3 Nn, vec3 Ln) {
+            vec3 projCoord = posL.xyz / posL.w;
+            if (projCoord.z > 1.f) {
+                return 0.0f;
+            }
+            projCoord = projCoord * 0.5f + 0.5f;
+
+            // from camera view
+            float currDepth = projCoord.z;
+            // from light view
+            float occDepth = texture(uLitMapDepth, projCoord.xy).r;
+            
+            // adaptive bias
+            float bias = 0.005f * tan(acos(dot(Nn, Ln)));
+            bias = clamp(bias, 0.f, 0.01f);
+
+            if (occDepth < currDepth - bias) {
+                return 0.5f;
+            }
+            else {
+                return 1.0f;
+            }
+        }
+
+        float RAND1(vec2 x) {
+            uint n = floatBitsToUint(x.y * 214013.f + x.x * 2531011.f);
+            n = n * (n * n * 15731u + 789221u);
+            n = (n >> 9u) | 0x3F800000u;
+            return 2.f - uintBitsToFloat(n);
+        }
+        vec3 RSM(vec3 posW, vec4 posL, vec3 Nn) {
+            vec3 projCoord = posL.xyz / posL.w;
+            if (projCoord.z > 1.f) {
+                return vec3(0.f, 0.f, 0.f);
+            }
+            vec2 litUV = projCoord.xy * 0.5f + 0.5f;
+
+            const float RADIUS = 0.01f;
+            const float INTENSITY = 100.0f;
+            const int SAMPLE = 64;
+
+            vec3 color = vec3(0.f, 0.f, 0.f);
+            vec2 seed = vec2(posW.x + posW.y, posW.y + posW.z);
+            float xi1 = 0.f;
+            float xi2 = 0.f;
+            for (int i = 0; i < SAMPLE; ++i) {
+                xi1 = RAND1(seed + vec2(i + 1, i));
+                xi2 = RAND1(seed + vec2(i, i + 1));
+
+                vec2 sampleUV = litUV + RADIUS * vec2(xi1 * sin(2.f * PI * xi2), xi1 * cos(2.f * PI * xi2));
+                vec3 litPhi = texture(uLitMapColor, sampleUV).rgb;
+                vec3 litPosW = texture(uLitMapPosW, sampleUV).rgb;
+                vec3 litNormal = texture(uLitMapNormal, sampleUV).rgb;
+
+                vec3 L = posW - litPosW;
+                vec3 Ln = normalize(L);
+                color += (xi1 * xi2) * litPhi * max(0.f, dot(litNormal, Ln)) * max(0.f, dot(Nn, -Ln)) / pow(length(L), 2.f);
+            }
+
+            return color * INTENSITY;
+        }
 
         void main() {
             ivec2 fragCoord = ivec2(gl_FragCoord.xy);
@@ -111,30 +180,16 @@
             vec3 Hn = normalize(Ln + Vn);
 
             // shadow
-            float shadowFactor = 0.0f;
-            vec3 projCoord = posL.xyz / posL.w;
-            if (projCoord.z <= 1.f) {
-                projCoord = projCoord * 0.5f + 0.5f;
-    
-                // from camera view
-                float currDepth = projCoord.z;
-                // from light view
-                float occDepth = texture(uLitMapDepth, projCoord.xy).r;
-                
-                // adaptive bias
-                float bias = 0.005f * tan(acos(dot(Nn, Ln)));
-                bias = clamp(bias, 0.f, 0.01f);
-    
-                if (occDepth < currDepth - bias) {
-                    shadowFactor = 0.5f;
-                }
-                else {
-                    shadowFactor = 1.0f;
-                }
+            float shadowFactor = checkShadow(posL, Nn, Ln);
+
+            // reflective shadow map
+            vec3 rsm = vec3(0.f, 0.f, 0.f);
+            if (uUseRSM == 1) {
+                rsm = RSM(posW, posL, Nn);
             }
 
             // blinn-phong
-            vec3 ambient = vec3(0.01f, 0.01f, 0.01f);
+            vec3 ambient = vec3(0.01f, 0.01f, 0.01f) + rsm;
             vec3 diffuse = max(dot(Nn, Ln), 0.f) * albedo.rgb;
             vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(0.0f, 0.0f, 0.0f);
 
@@ -144,6 +199,7 @@
             // float z = texelFetch(uLitMapDepth, fragCoord, 0).r;
             // z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
             // fFragColor = vec4(z, z, z, 1.0f);
+            //fFragColor = vec4(rsm, 1.0f);
         }
     </script>
 

@@ -12,7 +12,10 @@ var global = {
     start: null,
 };
 var flag = {
-    id: 0,
+    useRSM: true,
+    litPosX: 100.0,
+    litPosY: 2000.0,
+    litPosZ: 100.0,
 };
 
 function initWebGL() {
@@ -44,9 +47,12 @@ function initWebGL() {
     // gui
     gui = new Dat.GUI();
     gui.domElement.classList.add('navbar');
-    let texFolder = gui.addFolder('Texture');
-    texFolder.add(flag, 'id', {container: 0, container2: 1});
-    texFolder.open();
+    gui.add(flag, 'useRSM');
+    let litFolder = gui.addFolder('Light');
+    litFolder.add(flag, 'litPosX', -2000, 2000);
+    litFolder.add(flag, 'litPosY', -2000, 2000);
+    litFolder.add(flag, 'litPosZ', -2000, 2000);
+    litFolder.open();
 }
 
 function animate(time) {
