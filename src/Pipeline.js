@@ -14,6 +14,7 @@ export default class Pipeline {
     constructor() {
         this.dragon = new Model();
         this.sponza = new Model();
+        // forward rendering
         // this.blinnPhong = {
         //     program: null,
         //     uniform: {
@@ -43,7 +44,7 @@ export default class Pipeline {
         this.light = {
             position: null,
             resolution: 4096,
-            p: null,
+            p: null,  // shadow mapping
             v: null,
         };
         this.deferred = {
@@ -56,11 +57,11 @@ export default class Pipeline {
                 litMapPosW: null,
                 litMapColor: null,
                 litMapNormal: null,
-                litMapDepth: null,
+                litMapDepth: null,  // shadow mapping
                 litCmapDepth: [null, null, null],
                 eye: null,
                 light: null,
-                litMatVP: null,
+                litMatVP: null,  // shadow mapping
                 useRSM: null,
                 useCSM: null,
                 visualCSM: null,
@@ -93,7 +94,7 @@ export default class Pipeline {
         this.light.position = [100.0, 2000.0, 100.0];
         this.light.p = glm.mat4.create();
         this.light.v = glm.mat4.create();
-        glm.mat4.ortho(this.light.p, -2000, 2000, -2000, 2000, 0.1, 2500.0);
+        glm.mat4.ortho(this.light.p, -2000, 2000, -2000, 2000, 0.1, 2500.0);  // shadow mapping
         glm.mat4.lookAt(this.light.v, this.light.position, [0, 0, 0], [0, 1, 0]);
 
         // // forward rendering
@@ -327,7 +328,7 @@ export default class Pipeline {
         this.gbuffer.camera.unbind(gl);
     }
     lightPass(gl, flag) {
-        // shadow
+        // shadow mapping
         if (flag.useCSM == false) {
             this.gbuffer.light.bind(gl);
 
@@ -366,7 +367,7 @@ export default class Pipeline {
             return;
         }
 
-        // cascaded shadow
+        // cascaded
         for (let i = 0; i < NUM_CSM; ++i) {
             this.csm.gbuffer[i].bind(gl);
 
