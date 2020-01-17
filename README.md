@@ -10,7 +10,7 @@
 ## Feature
 
 * OBJ format model
-* (Cascaded) Shadow mapping
+* Cascadeds shadow mapping (CSM)
 * Blinn-phong shading model
 * RSM
 
