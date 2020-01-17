@@ -40,8 +40,9 @@
             vTexcoord = iTexcoord;
             vNormal = mat3(transpose(inverse(uM))) * iNormal;
             vPosW = uM * vec4(iPosition, 1.0f);
-
+            
             gl_Position = uMVP * vec4(iPosition, 1.0f);
+            vPosW.w = gl_Position.z; // depth in clip space for CSM
         }
     </script>
     <script type='x-shader/x-fragment' id='gbuffer-fs'>
@@ -90,19 +91,26 @@
 
         in vec2 vTexcoord;
 
+        const int NUM_CSM = 3;
+
         uniform sampler2D uCamMapPosW;
         uniform sampler2D uCamMapColor;
         uniform sampler2D uCamMapNormal;
         uniform sampler2D uCamMapDepth;
-        uniform sampler2D uLitMapDepth;
+        uniform sampler2D uLitMapDepth;  // shadow mapping
         uniform sampler2D uLitMapPosW;
         uniform sampler2D uLitMapColor;
         uniform sampler2D uLitMapNormal;
+        uniform sampler2D uLitCmapDepth[NUM_CSM];
         uniform vec3 uEye;
         uniform vec3 uLight;
-        uniform mat4 uLitMatVP;
+        uniform mat4 uLitMatVP;  // shadow mapping
+        uniform float uCamCrange[NUM_CSM];
+        uniform mat4 uLitCmatVP[NUM_CSM];
 
         uniform int uUseRSM;
+        uniform int uUseCSM;
+        uniform int uVisualCSM;
         uniform int uVisualTech;
         uniform int uVisualCamMapDepth;
 
@@ -119,6 +127,29 @@
             float currDepth = projCoord.z;
             // from light view
             float occDepth = texture(uLitMapDepth, projCoord.xy).r;
+            
+            // adaptive bias
+            float bias = 0.005f * tan(acos(dot(Nn, Ln)));
+            bias = clamp(bias, 0.f, 0.01f);
+
+            if (occDepth < currDepth - bias) {
+                return 0.5f;
+            }
+            else {
+                return 1.0f;
+            }
+        }
+        float checkCascadedShadow(int i, vec4 posL, vec3 Nn, vec3 Ln) {
+            vec3 projCoord = posL.xyz / posL.w;
+            if (projCoord.z > 1.f) {
+                return 1.0f;
+            }
+            projCoord = projCoord * 0.5f + 0.5f;
+
+            // from camera view
+            float currDepth = projCoord.z;
+            // from light view
+            float occDepth = texture(uLitCmapDepth[i], projCoord.xy).r;
             
             // adaptive bias
             float bias = 0.005f * tan(acos(dot(Nn, Ln)));
@@ -187,8 +218,39 @@
             vec3 Ln = normalize(uLight);
             vec3 Hn = normalize(Ln + Vn);
 
+            float shadowFactor = 1.f;
+            vec4 cascadedIndicator = vec4(0.f, 0.f, 0.f, 0.f);
             // shadow
-            float shadowFactor = checkShadow(posL, Nn, Ln);
+            if (uUseCSM == 0) {
+                shadowFactor = checkShadow(posL, Nn, Ln);
+            }
+            // cascaded shadow
+            else {
+                // choose LOD for CSM in clip space
+                for (int i = 0; i < NUM_CSM; ++i) {
+                    float fogDepth = texelFetch(uCamMapPosW, fragCoord, 0).a;
+                    if (fogDepth <= uCamCrange[i]) {
+                        vec4 posCl = uLitCmatVP[i] * vec4(posW, 1.f);
+                        shadowFactor = checkCascadedShadow(i, posCl, Nn, Ln);
+
+                        // visualize frustum sections
+                        if (uVisualCSM == 0) {
+                            cascadedIndicator = vec4(0.f, 0.f, 0.f, 0.f);
+                        }
+                        else if (i == 0) {
+                            cascadedIndicator = vec4(0.05f, 0.f, 0.f, 0.f);
+                        }
+                        else if (i == 1) {
+                            cascadedIndicator = vec4(0.f, 0.05f, 0.f, 0.f);
+                        }
+                        else if (i == 2) {
+                            cascadedIndicator = vec4(0.f, 0.f, 0.05f, 0.f);
+                        }
+
+                        break;
+                    }
+                }
+            }
 
             // reflective shadow map
             vec3 rsm = vec3(0.f, 0.f, 0.f);
@@ -201,7 +263,7 @@
             vec3 diffuse = max(dot(Nn, Ln), 0.f) * albedo.rgb;
             vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(0.0f, 0.0f, 0.0f);
 
-            fFragColor = vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
+            fFragColor = cascadedIndicator + vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
 
             // visualize depth
             if (uVisualCamMapDepth == 1) {
@@ -213,6 +275,8 @@
             if (uVisualTech == 1) {
                 fFragColor = vec4(texelFetch(uCamMapNormal, fragCoord, 0).a, 0.f, 0.f, 1.0f);
             }
+            // float z = texture(uLitCmapDepth[0], vTexcoord).r;
+            // fFragColor = vec4(z, z, z, 1.f);
         }
     </script>
 

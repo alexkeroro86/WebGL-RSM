@@ -13,6 +13,8 @@ var global = {
 };
 var flag = {
     useRSM: true,
+    useCSM: false,
+    visualCSM: false,
     visualTech: false,
     visualCamMapDepth: false,
     litPosX: 100.0,
@@ -50,6 +52,8 @@ function initWebGL() {
     gui = new Dat.GUI();
     gui.domElement.classList.add('navbar');
     gui.add(flag, 'useRSM');
+    gui.add(flag, 'useCSM');
+    gui.add(flag, 'visualCSM');
     gui.add(flag, 'visualTech');
     gui.add(flag, 'visualCamMapDepth');
     let litFolder = gui.addFolder('Light');

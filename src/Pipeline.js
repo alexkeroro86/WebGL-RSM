@@ -4,6 +4,11 @@ import { createShader, loadImage } from './util';
 import Camera from './Camera';
 import Gbuffer from './Gbuffer';
 
+const NEAR = 0.1;
+const FAR = 1800.0;
+const FOV = Math.PI * 0.33;
+const NUM_CSM = 3;
+
 export default class Pipeline {
 
     constructor() {
@@ -52,13 +57,24 @@ export default class Pipeline {
                 litMapColor: null,
                 litMapNormal: null,
                 litMapDepth: null,
+                litCmapDepth: [null, null, null],
                 eye: null,
                 light: null,
                 litMatVP: null,
                 useRSM: null,
+                useCSM: null,
+                visualCSM: null,
                 visualTech: null,
                 visualCamMapDepth: null,
+                camCrange: [null, null, null],
+                litCmatVP: [null, null, null],
             },
+        };
+        this.csm = {
+            gbuffer: [new Gbuffer(), new Gbuffer(), new Gbuffer(), new Gbuffer()],
+            range: [-NEAR, -300.0, -900.0, -FAR],  // split frustum into (NUM_CSM+1) levels (flip-z)
+            clip: [0, 0, 0, 0],
+            vp: [new glm.mat4.create(), new glm.mat4.create(), new glm.mat4.create()], 
         };
     }
 
@@ -128,8 +144,15 @@ export default class Pipeline {
         this.deferred.uniform.light = gl.getUniformLocation(this.deferred.program, 'uLight');
         this.deferred.uniform.litMatVP = gl.getUniformLocation(this.deferred.program, 'uLitMatVP');
         this.deferred.uniform.useRSM = gl.getUniformLocation(this.deferred.program, 'uUseRSM');
+        this.deferred.uniform.useCSM = gl.getUniformLocation(this.deferred.program, 'uUseCSM');
+        this.deferred.uniform.visualCSM = gl.getUniformLocation(this.deferred.program, 'uVisualCSM');
         this.deferred.uniform.visualTech = gl.getUniformLocation(this.deferred.program, 'uVisualTech');
         this.deferred.uniform.visualCamMapDepth = gl.getUniformLocation(this.deferred.program, 'uVisualCamMapDepth');
+        for (let i = 0; i < NUM_CSM; ++i) {
+            this.deferred.uniform.litCmapDepth[i] = gl.getUniformLocation(this.deferred.program, `uLitCmapDepth[${i}]`);
+            this.deferred.uniform.camCrange[i] = gl.getUniformLocation(this.deferred.program, `uCamCrange[${i}]`);
+            this.deferred.uniform.litCmatVP[i] = gl.getUniformLocation(this.deferred.program, `uLitCmatVP[${i}]`);
+        }
 
         // set uniform
         gl.useProgram(this.deferred.program);
@@ -142,12 +165,96 @@ export default class Pipeline {
         gl.uniform1i(this.deferred.uniform.litMapColor, 6);
         gl.uniform1i(this.deferred.uniform.litMapNormal, 7);
         gl.uniform3fv(this.deferred.uniform.light, this.light.position);
+        for (let i = 0; i < NUM_CSM; ++i) {
+            gl.uniform1i(this.deferred.uniform.litCmapDepth[i], 8 + i);
+        }
 
         gl.useProgram(null);
 
         // gbuffer
         this.gbuffer.camera.init(gl, gl.drawingBufferWidth, gl.drawingBufferHeight);
         this.gbuffer.light.init(gl, this.light.resolution, this.light.resolution);
+        for (let i = 0; i < NUM_CSM; ++i) {
+            this.csm.gbuffer[i].init(gl, this.light.resolution, this.light.resolution, true);
+        }
+    }
+
+    cascadedFrustum(gl) {
+        // CSM
+        let camInvV = glm.mat4.create();
+        glm.mat4.invert(camInvV, this.matrix.v);
+        let aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
+        let tanHalfHFOV = Math.tan(FOV * aspect * 0.5);
+        let tanHalfVFOV = Math.tan(FOV * 0.5);
+
+        for (let i = 0; i < NUM_CSM; ++i) {
+            // change to clip space
+            let view = glm.vec4.fromValues(0.0, 0.0, this.csm.range[i + 1], 1.0);
+            let clip = glm.vec4.create();
+            glm.vec4.transformMat4(clip, view, this.matrix.p);
+            this.csm.clip[i] = clip[2];
+
+            // calculate light matrix
+            let xn = this.csm.range[i] * tanHalfHFOV;
+            let xf = this.csm.range[i + 1] * tanHalfHFOV;
+            let yn = this.csm.range[i] * tanHalfVFOV;
+            let yf = this.csm.range[i + 1] * tanHalfVFOV;
+
+            // console.log(xn, xf, yn, yf);
+
+            // corners in view space
+            let camFrustumCorners = [
+                // near plane
+                glm.vec4.fromValues(xn, yn, this.csm.range[i], 1.0),
+                glm.vec4.fromValues(-xn, yn, this.csm.range[i], 1.0),
+                glm.vec4.fromValues(xn, -yn, this.csm.range[i], 1.0),
+                glm.vec4.fromValues(-xn, -yn, this.csm.range[i], 1.0),
+                // far plane
+                glm.vec4.fromValues(xf, yf, this.csm.range[i + 1], 1.0),
+                glm.vec4.fromValues(-xf, yf, this.csm.range[i + 1], 1.0),
+                glm.vec4.fromValues(xf, -yf, this.csm.range[i + 1], 1.0),
+                glm.vec4.fromValues(-xf, -yf, this.csm.range[i + 1], 1.0),
+            ];
+
+            // change to light space
+            let litFrustumCorners = [
+                glm.vec4.create(),
+                glm.vec4.create(),
+                glm.vec4.create(),
+                glm.vec4.create(),
+                glm.vec4.create(),
+                glm.vec4.create(),
+                glm.vec4.create(),
+                glm.vec4.create(),
+            ];
+
+            let minX = Number.MAX_VALUE;
+            let maxX = Number.MIN_VALUE;
+            let minY = Number.MAX_VALUE;
+            let maxY = Number.MIN_VALUE;
+            let minZ = Number.MAX_VALUE;
+            let maxZ = Number.MIN_VALUE;
+
+            // find local bounding box
+            for (let j = 0; j < 8; ++j) {
+                let view = glm.vec4.create();
+                glm.vec4.transformMat4(view, camFrustumCorners[j], camInvV);
+                glm.vec4.transformMat4(litFrustumCorners[j], view, this.light.v);
+                
+                minX = Math.min(minX, litFrustumCorners[j][0]);
+                maxX = Math.max(maxX, litFrustumCorners[j][0]);
+                minY = Math.min(minY, litFrustumCorners[j][1]);
+                maxY = Math.max(maxY, litFrustumCorners[j][1]);
+                minZ = Math.min(minZ, litFrustumCorners[j][2]);
+                maxZ = Math.max(maxZ, litFrustumCorners[j][2]);
+            }
+
+            // set light VP matrix (flip-z)
+            let p = glm.mat4.create();
+            glm.mat4.ortho(p, minX, maxX, minY, maxY, -maxZ, -minZ);
+            glm.mat4.multiply(this.csm.vp[i], p, this.light.v);
+            // console.log(minX, maxX, minY, maxY, -maxZ, -minZ);
+        }
     }
 
     forwardPass(gl) {
@@ -219,40 +326,80 @@ export default class Pipeline {
 
         this.gbuffer.camera.unbind(gl);
     }
-    lightPass(gl) {
-        this.gbuffer.light.bind(gl);
+    lightPass(gl, flag) {
+        // shadow
+        if (flag.useCSM == false) {
+            this.gbuffer.light.bind(gl);
 
-        gl.viewport(0, 0, this.light.resolution, this.light.resolution);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.viewport(0, 0, this.light.resolution, this.light.resolution);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        gl.useProgram(this.gbuffer.program);
+            gl.useProgram(this.gbuffer.program);
 
-        // set uniform
-        let mvp = glm.mat4.create();
-        glm.mat4.multiply(mvp, this.light.p, this.light.v);
-        glm.mat4.multiply(mvp, mvp, this.matrix.m);
+            // set uniform
+            let mvp = glm.mat4.create();
+            glm.mat4.multiply(mvp, this.light.p, this.light.v);
+            glm.mat4.multiply(mvp, mvp, this.matrix.m);
 
-        gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
-        gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, this.matrix.m);
+            gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
+            gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, this.matrix.m);
 
-        // drawing command
-        this.sponza.render(gl);
+            // drawing command
+            this.sponza.render(gl);
 
-        // set uniform
-        let dragonM = glm.mat4.create();
-        glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
-        glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
-        mvp = glm.mat4.create();
-        glm.mat4.multiply(mvp, this.light.p, this.light.v);
-        glm.mat4.multiply(mvp, mvp, dragonM);
+            // set uniform
+            let dragonM = glm.mat4.create();
+            glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
+            glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
+            mvp = glm.mat4.create();
+            glm.mat4.multiply(mvp, this.light.p, this.light.v);
+            glm.mat4.multiply(mvp, mvp, dragonM);
 
-        gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
-        gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, dragonM);
+            gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
+            gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, dragonM);
 
-        // drawing command
-        this.dragon.render(gl);
+            // drawing command
+            this.dragon.render(gl);
 
-        this.gbuffer.light.unbind(gl);
+            this.gbuffer.light.unbind(gl);
+
+            return;
+        }
+
+        // cascaded shadow
+        for (let i = 0; i < NUM_CSM; ++i) {
+            this.csm.gbuffer[i].bind(gl);
+
+            gl.viewport(0, 0, this.light.resolution, this.light.resolution);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            gl.useProgram(this.gbuffer.program);
+
+            // set uniform
+            let mvp = glm.mat4.create();
+            glm.mat4.multiply(mvp, this.csm.vp[i], this.matrix.m);
+
+            gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
+            gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, this.matrix.m);
+
+            // drawing command
+            this.sponza.render(gl);
+
+            // set uniform
+            let dragonM = glm.mat4.create();
+            glm.mat4.scale(dragonM, dragonM, [15, 15, 15]);
+            glm.mat4.rotateY(dragonM, dragonM, Math.PI * 0.5);
+            mvp = glm.mat4.create();
+            glm.mat4.multiply(mvp, this.csm.vp[i], dragonM);
+
+            gl.uniformMatrix4fv(this.gbuffer.uniform.mvp, false, mvp);
+            gl.uniformMatrix4fv(this.gbuffer.uniform.m, false, dragonM);
+
+            // drawing command
+            this.dragon.render(gl);
+
+            this.csm.gbuffer[i].unbind(gl);
+        }
     }
     deferredPass(gl, flag) {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -266,6 +413,8 @@ export default class Pipeline {
 
         gl.uniformMatrix4fv(this.deferred.uniform.litMatVP, false, vp);
         gl.uniform1i(this.deferred.uniform.useRSM, flag.useRSM);
+        gl.uniform1i(this.deferred.uniform.useCSM, flag.useCSM);
+        gl.uniform1i(this.deferred.uniform.visualCSM, flag.visualCSM);
         gl.uniform1i(this.deferred.uniform.visualTech, flag.visualTech);
         gl.uniform1i(this.deferred.uniform.visualCamMapDepth, flag.visualCamMapDepth);
 
@@ -287,6 +436,15 @@ export default class Pipeline {
         gl.activeTexture(gl.TEXTURE7);
         gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.light.renderTarget.normal);
 
+        // CSM
+        for (let i = 0; i < NUM_CSM; ++i) {
+            gl.activeTexture(gl.TEXTURE8 + i);
+            gl.bindTexture(gl.TEXTURE_2D, this.csm.gbuffer[i].renderTarget.depth);
+
+            gl.uniform1f(this.deferred.uniform.camCrange[i], this.csm.clip[i]);
+            gl.uniformMatrix4fv(this.deferred.uniform.litCmatVP[i], false, this.csm.vp[i]);
+        }
+
         // drawing command
         Gbuffer.render(gl);
     }
@@ -299,8 +457,11 @@ export default class Pipeline {
         this.light.v = glm.mat4.create();
         glm.mat4.lookAt(this.light.v, this.light.position, [0, 0, 0], [0, 1, 0]);
 
+        // update cascaded frustum
+        this.cascadedFrustum(gl);
+
         this.cameraPass(gl);
-        this.lightPass(gl);
+        this.lightPass(gl, flag);
         this.deferredPass(gl, flag);
     }
 
