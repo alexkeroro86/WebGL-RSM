@@ -244,6 +244,7 @@ export default class Model {
         for (let mesh of this.meshes) {
             gl.bindVertexArray(mesh.vao);
             if (mesh.material) {
+                // decide which object should use tech
                 gl.uniform1f(this.useTech, (mesh.material == 'floor' || mesh.material.indexOf('fabric') != -1) ? 1.0 : 0.0);
                 gl.activeTexture(gl.TEXTURE0);
                 gl.bindTexture(gl.TEXTURE_2D, this.materials[mesh.material].mapKd);

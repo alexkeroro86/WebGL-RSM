@@ -162,6 +162,7 @@
                 vec3 litPosW = texture(uLitMapPosW, sampleUV).rgb;
                 vec3 litNormal = texture(uLitMapNormal, sampleUV).rgb;
                 float useTech = texture(uLitMapNormal, sampleUV).a;
+                // ignore non-specified pixel light object
                 if (useTech < 0.5f) {
                     continue;
                 }
