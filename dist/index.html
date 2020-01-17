@@ -111,6 +111,7 @@
         uniform int uUseRSM;
         uniform int uUseCSM;
         uniform int uVisualCSM;
+        uniform int uVisualRSM;
         uniform int uVisualTech;
         uniform int uVisualCamMapDepth;
 
@@ -265,6 +266,10 @@
 
             fFragColor = cascadedIndicator + vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
 
+            // visualize RSM
+            if (uVisualRSM == 1) {
+                fFragColor = vec4(rsm, 1.f);
+            }
             // visualize depth
             if (uVisualCamMapDepth == 1) {
                 float z = texelFetch(uCamMapDepth, fragCoord, 0).r;

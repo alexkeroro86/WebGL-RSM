@@ -65,6 +65,7 @@ export default class Pipeline {
                 useRSM: null,
                 useCSM: null,
                 visualCSM: null,
+                visualRSM: null,
                 visualTech: null,
                 visualCamMapDepth: null,
                 camCrange: [null, null, null],
@@ -147,6 +148,7 @@ export default class Pipeline {
         this.deferred.uniform.useRSM = gl.getUniformLocation(this.deferred.program, 'uUseRSM');
         this.deferred.uniform.useCSM = gl.getUniformLocation(this.deferred.program, 'uUseCSM');
         this.deferred.uniform.visualCSM = gl.getUniformLocation(this.deferred.program, 'uVisualCSM');
+        this.deferred.uniform.visualRSM = gl.getUniformLocation(this.deferred.program, 'uVisualRSM');
         this.deferred.uniform.visualTech = gl.getUniformLocation(this.deferred.program, 'uVisualTech');
         this.deferred.uniform.visualCamMapDepth = gl.getUniformLocation(this.deferred.program, 'uVisualCamMapDepth');
         for (let i = 0; i < NUM_CSM; ++i) {
@@ -165,7 +167,6 @@ export default class Pipeline {
         gl.uniform1i(this.deferred.uniform.litMapPosW, 5);
         gl.uniform1i(this.deferred.uniform.litMapColor, 6);
         gl.uniform1i(this.deferred.uniform.litMapNormal, 7);
-        gl.uniform3fv(this.deferred.uniform.light, this.light.position);
         for (let i = 0; i < NUM_CSM; ++i) {
             gl.uniform1i(this.deferred.uniform.litCmapDepth[i], 8 + i);
         }
@@ -417,8 +418,10 @@ export default class Pipeline {
         gl.uniform1i(this.deferred.uniform.useRSM, flag.useRSM);
         gl.uniform1i(this.deferred.uniform.useCSM, flag.useCSM);
         gl.uniform1i(this.deferred.uniform.visualCSM, flag.visualCSM);
+        gl.uniform1i(this.deferred.uniform.visualRSM, flag.visualRSM);
         gl.uniform1i(this.deferred.uniform.visualTech, flag.visualTech);
         gl.uniform1i(this.deferred.uniform.visualCamMapDepth, flag.visualCamMapDepth);
+        gl.uniform3fv(this.deferred.uniform.light, this.light.position);
 
         gl.uniform3fv(this.deferred.uniform.eye, this.camera.move.position);
         gl.activeTexture(gl.TEXTURE0);

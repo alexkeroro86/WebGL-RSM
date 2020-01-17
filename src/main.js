@@ -15,6 +15,7 @@ var flag = {
     useRSM: true,
     useCSM: false,
     visualCSM: false,
+    visualRSM: false,
     visualTech: false,
     visualCamMapDepth: false,
     litPosX: 100.0,
@@ -54,6 +55,7 @@ function initWebGL() {
     gui.add(flag, 'useRSM');
     gui.add(flag, 'useCSM');
     gui.add(flag, 'visualCSM');
+    gui.add(flag, 'visualRSM');
     gui.add(flag, 'visualTech');
     gui.add(flag, 'visualCamMapDepth');
     let litFolder = gui.addFolder('Light');
