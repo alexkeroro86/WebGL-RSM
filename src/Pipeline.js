@@ -56,6 +56,8 @@ export default class Pipeline {
                 light: null,
                 litMatVP: null,
                 useRSM: null,
+                visualTech: null,
+                visualCamMapDepth: null,
             },
         };
     }
@@ -126,6 +128,8 @@ export default class Pipeline {
         this.deferred.uniform.light = gl.getUniformLocation(this.deferred.program, 'uLight');
         this.deferred.uniform.litMatVP = gl.getUniformLocation(this.deferred.program, 'uLitMatVP');
         this.deferred.uniform.useRSM = gl.getUniformLocation(this.deferred.program, 'uUseRSM');
+        this.deferred.uniform.visualTech = gl.getUniformLocation(this.deferred.program, 'uVisualTech');
+        this.deferred.uniform.visualCamMapDepth = gl.getUniformLocation(this.deferred.program, 'uVisualCamMapDepth');
 
         // set uniform
         gl.useProgram(this.deferred.program);
@@ -262,6 +266,8 @@ export default class Pipeline {
 
         gl.uniformMatrix4fv(this.deferred.uniform.litMatVP, false, vp);
         gl.uniform1i(this.deferred.uniform.useRSM, flag.useRSM);
+        gl.uniform1i(this.deferred.uniform.visualTech, flag.visualTech);
+        gl.uniform1i(this.deferred.uniform.visualCamMapDepth, flag.visualCamMapDepth);
 
         gl.uniform3fv(this.deferred.uniform.eye, this.camera.move.position);
         gl.activeTexture(gl.TEXTURE0);

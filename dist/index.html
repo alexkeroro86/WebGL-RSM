@@ -103,6 +103,8 @@
         uniform mat4 uLitMatVP;
 
         uniform int uUseRSM;
+        uniform int uVisualTech;
+        uniform int uVisualCamMapDepth;
 
         const float PI = 3.1415926f;
 
@@ -201,10 +203,15 @@
             fFragColor = vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
 
             // visualize depth
-            // float z = texelFetch(uLitMapDepth, fragCoord, 0).r;
-            // z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
-            // fFragColor = vec4(z, z, z, 1.0f);
-            // fFragColor = vec4(techChannel, 0.f, 0.f, 1.0f);
+            if (uVisualCamMapDepth == 1) {
+                float z = texelFetch(uCamMapDepth, fragCoord, 0).r;
+                z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
+                fFragColor = vec4(z, z, z, 1.0f);
+            }
+            // visualize tech channel
+            if (uVisualTech == 1) {
+                fFragColor = vec4(texelFetch(uCamMapNormal, fragCoord, 0).a, 0.f, 0.f, 1.0f);
+            }
         }
     </script>
 
