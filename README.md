@@ -4,10 +4,10 @@
 
 * gl-matrix
 * dat.gui
-* stats.js
+* stats-js
 * webpack
 
-## Supported Feature
+## Feature
 
 * OBJ format model
 * Shadow mapping
