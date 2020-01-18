@@ -14,6 +14,7 @@ var global = {
 var flag = {
     useRSM: true,
     useCSM: false,
+    useSSR: false,
     visualCSM: false,
     visualRSM: false,
     visualTech: false,
@@ -54,6 +55,7 @@ function initWebGL() {
     gui.domElement.classList.add('navbar');
     gui.add(flag, 'useRSM');
     gui.add(flag, 'useCSM');
+    gui.add(flag, 'useSSR');
     gui.add(flag, 'visualCSM');
     gui.add(flag, 'visualRSM');
     gui.add(flag, 'visualTech');

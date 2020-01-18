@@ -64,12 +64,15 @@ export default class Pipeline {
                 litMatVP: null,  // shadow mapping
                 useRSM: null,
                 useCSM: null,
+                useSSR: null,
                 visualCSM: null,
                 visualRSM: null,
                 visualTech: null,
                 visualCamMapDepth: null,
                 camCrange: [null, null, null],
                 litCmatVP: [null, null, null],
+                camMatV: null,  // screen-space reflection
+                camMatP: null,
             },
         };
         this.csm = {
@@ -147,6 +150,7 @@ export default class Pipeline {
         this.deferred.uniform.litMatVP = gl.getUniformLocation(this.deferred.program, 'uLitMatVP');
         this.deferred.uniform.useRSM = gl.getUniformLocation(this.deferred.program, 'uUseRSM');
         this.deferred.uniform.useCSM = gl.getUniformLocation(this.deferred.program, 'uUseCSM');
+        this.deferred.uniform.useSSR = gl.getUniformLocation(this.deferred.program, 'uUseSSR');
         this.deferred.uniform.visualCSM = gl.getUniformLocation(this.deferred.program, 'uVisualCSM');
         this.deferred.uniform.visualRSM = gl.getUniformLocation(this.deferred.program, 'uVisualRSM');
         this.deferred.uniform.visualTech = gl.getUniformLocation(this.deferred.program, 'uVisualTech');
@@ -156,6 +160,8 @@ export default class Pipeline {
             this.deferred.uniform.camCrange[i] = gl.getUniformLocation(this.deferred.program, `uCamCrange[${i}]`);
             this.deferred.uniform.litCmatVP[i] = gl.getUniformLocation(this.deferred.program, `uLitCmatVP[${i}]`);
         }
+        this.deferred.uniform.camMatV = gl.getUniformLocation(this.deferred.program, 'uCamMatV');
+        this.deferred.uniform.camMatP = gl.getUniformLocation(this.deferred.program, 'uCamMatP');
 
         // set uniform
         gl.useProgram(this.deferred.program);
@@ -417,6 +423,7 @@ export default class Pipeline {
         gl.uniformMatrix4fv(this.deferred.uniform.litMatVP, false, vp);
         gl.uniform1i(this.deferred.uniform.useRSM, flag.useRSM);
         gl.uniform1i(this.deferred.uniform.useCSM, flag.useCSM);
+        gl.uniform1i(this.deferred.uniform.useSSR, flag.useSSR);
         gl.uniform1i(this.deferred.uniform.visualCSM, flag.visualCSM);
         gl.uniform1i(this.deferred.uniform.visualRSM, flag.visualRSM);
         gl.uniform1i(this.deferred.uniform.visualTech, flag.visualTech);
@@ -449,6 +456,10 @@ export default class Pipeline {
             gl.uniform1f(this.deferred.uniform.camCrange[i], this.csm.clip[i]);
             gl.uniformMatrix4fv(this.deferred.uniform.litCmatVP[i], false, this.csm.vp[i]);
         }
+
+        // SSR
+        gl.uniformMatrix4fv(this.deferred.uniform.camMatV, false, this.matrix.v);
+        gl.uniformMatrix4fv(this.deferred.uniform.camMatP, false, this.matrix.p);
 
         // drawing command
         Gbuffer.render(gl);
