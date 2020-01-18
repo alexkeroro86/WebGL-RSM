@@ -71,8 +71,8 @@ export default class Pipeline {
                 visualCamMapDepth: null,
                 camCrange: [null, null, null],
                 litCmatVP: [null, null, null],
-                camMatV: null,  // screen-space reflection
-                camMatP: null,
+                camMatVP: null,  // screen-space reflection
+                camMatV: null,
             },
         };
         this.csm = {
@@ -160,8 +160,8 @@ export default class Pipeline {
             this.deferred.uniform.camCrange[i] = gl.getUniformLocation(this.deferred.program, `uCamCrange[${i}]`);
             this.deferred.uniform.litCmatVP[i] = gl.getUniformLocation(this.deferred.program, `uLitCmatVP[${i}]`);
         }
+        this.deferred.uniform.camMatVP = gl.getUniformLocation(this.deferred.program, 'uCamMatVP');
         this.deferred.uniform.camMatV = gl.getUniformLocation(this.deferred.program, 'uCamMatV');
-        this.deferred.uniform.camMatP = gl.getUniformLocation(this.deferred.program, 'uCamMatP');
 
         // set uniform
         gl.useProgram(this.deferred.program);
@@ -458,8 +458,10 @@ export default class Pipeline {
         }
 
         // SSR
+        vp = glm.mat4.create();
+        glm.mat4.multiply(vp, this.matrix.p, this.matrix.v);
+        gl.uniformMatrix4fv(this.deferred.uniform.camMatVP, false, vp);
         gl.uniformMatrix4fv(this.deferred.uniform.camMatV, false, this.matrix.v);
-        gl.uniformMatrix4fv(this.deferred.uniform.camMatP, false, this.matrix.p);
 
         // drawing command
         Gbuffer.render(gl);

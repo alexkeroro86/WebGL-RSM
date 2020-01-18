@@ -108,8 +108,8 @@
         uniform float uCamCrange[NUM_CSM];
         uniform mat4 uLitCmatVP[NUM_CSM];
 
-        uniform mat4 uCamMatV;  // screen-space reflection
-        uniform mat4 uCamMatP;
+        uniform mat4 uCamMatVP;  // screen-space reflection
+        uniform mat4 uCamMatV;
 
         uniform int uUseRSM;
         uniform int uUseCSM;
@@ -120,11 +120,6 @@
         uniform int uVisualCamMapDepth;
 
         const float PI = 3.1415926f;
-        const float STEP_SIZE = 0.1f;
-        const float MIN_STEP = 0.1f;
-        const int MAX_STEP = 30;
-        const int MAX_SEARCH = 5;
-        const float FALLOFF_EXP = 3.0f;
 
         // ************ (Cascaded) Shadow Mapping ************
         // http://ogldev.atspace.co.uk/www/tutorial49/tutorial49.html
@@ -223,50 +218,19 @@
 
         // ************ Scree-Space Reflection ************
         // http://imanolfotia.com/blog/update/2017/03/11/ScreenSpaceReflections.html
-        vec3 fresnelSchlick(float cosTheta, vec3 F0) {
-            return F0 + (1.f - F0) * pow(1.f - cosTheta, 5.f);
-        }
-        vec3 hash(vec3 a) {
-            a = fract(a * vec3(0.8f, 0.8f, 0.8f));
-            a += dot(a, a.yxz + 19.19f);
-            return fract((a.xxy + a.yxx) * a.zyx);
-        }
+
+        const float STEP_SIZE = 1.0f;
+        const float MIN_STEP = 0.1f;
+        const int MAX_STEP = 30;
+        const int MAX_SEARCH = 5;
+        const float FALLOFF_EXP = 3.0f;
+
         float camDistance(vec3 posW) {
-            // return positive distance between [near, far]
+            // distance between [near, far]
             return -vec4(uCamMatV * vec4(posW, 1.f)).z;
         }
         vec4 rayMarch(vec3 rayDir, inout vec3 rayOrigin, out float dDepth) {
-            rayDir *= STEP_SIZE; // step per update
-
-            vec4 projCoord;
-            float depth;
-            mat4 camMatVP = uCamMatP * uCamMatV;
-
-            // ray marching
-            for (int i = 0; i < MAX_STEP; ++i) {
-                rayOrigin += rayDir;
-
-                projCoord = camMatVP * vec4(rayOrigin, 1.f);
-                projCoord.xy /= projCoord.w;
-                projCoord.xy = projCoord.xy * 0.5f + 0.5f;
-
-                // out-of-range
-                depth = camDistance(texture(uCamMapPosW, projCoord.xy).xyz);
-                if (depth > 1000.f) {
-                    continue;
-                }
-
-                dDepth = camDistance(rayOrigin) - depth;
-
-                if ((rayDir.z - dDepth) < 1.2f) {
-                    // hit
-                    if (dDepth <= 0.f) {
-                        return vec4(0.f, 1.f, 0.f, depth);
-                    }
-                }
-            }
-            // miss
-            return vec4(1.f, 0.f, 0.f, depth);
+            return vec4(0.f);
         }
         vec3 SSR(vec3 posW, vec3 norW, vec3 camW) {
             float useTech = texelFetch(uCamMapNormal, ivec2(gl_FragCoord.xy), 0).a;
@@ -274,14 +238,7 @@
                 return vec3(0.f);
             }
 
-            float depth = camDistance(posW);
-
-            float dDepth;
-            vec3 rayOrigin = posW;
-            vec3 rayDir = normalize(reflect(camW, norW));
-            vec4 color = rayMarch(rayDir, rayOrigin, dDepth);
-
-            return color.rgb;
+            return vec3(0.f);
         }
 
         void main() {
@@ -340,6 +297,8 @@
             vec3 ssr = vec3(0.f);
             if (uUseSSR == 1) {
                 ssr = SSR(posW, Nn, Vn);
+                fFragColor = vec4(ssr, 1.f);
+                return;
             }
 
             // blinn-phong
@@ -365,7 +324,6 @@
             }
             // float z = texture(uLitCmapDepth[0], vTexcoord).r;
             // fFragColor = vec4(z, z, z, 1.f);
-            fFragColor = vec4(ssr, 1.f);
         }
     </script>
 
