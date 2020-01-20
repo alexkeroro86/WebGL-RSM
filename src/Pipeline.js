@@ -86,7 +86,8 @@ export default class Pipeline {
                 camMapPosV: null,
                 camMapColor: null,
                 camMapNorV: null,
-                eye: null,
+                camMapDepth: null,
+                camMatP: null,
             },
         };
     }
@@ -192,13 +193,15 @@ export default class Pipeline {
         this.postEffect.uniform.camMapPosV = gl.getUniformLocation(this.postEffect.program, 'uCamMapPosV');
         this.postEffect.uniform.camMapColor = gl.getUniformLocation(this.postEffect.program, 'uCamMapColor');
         this.postEffect.uniform.camMapNorV = gl.getUniformLocation(this.postEffect.program, 'uCamMapNorV');
-        this.postEffect.uniform.eye = gl.getUniformLocation(this.postEffect.program, 'uEye');
+        this.postEffect.uniform.camMapDepth = gl.getUniformLocation(this.postEffect.program, 'uCamMapDepth');
+        this.postEffect.uniform.camMatP = gl.getUniformLocation(this.postEffect.program, 'uCamMatP');
 
         // set uniform
         gl.useProgram(this.postEffect.program);
         gl.uniform1i(this.postEffect.uniform.camMapPosV, 0);
         gl.uniform1i(this.postEffect.uniform.camMapColor, 1);
         gl.uniform1i(this.postEffect.uniform.camMapNorV, 2);
+        gl.uniform1i(this.postEffect.uniform.camMapDepth, 3);
 
         this.deferred.gbuffer.init(gl, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
@@ -496,13 +499,17 @@ export default class Pipeline {
         gl.useProgram(this.postEffect.program);
 
         // set uniform
-        gl.uniform3fv(this.postEffect.uniform.eye, this.camera.move.position);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.position);
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.color);
         gl.activeTexture(gl.TEXTURE2);
         gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.normal);
+        gl.activeTexture(gl.TEXTURE3);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.depth);
+
+        // SSR
+        gl.uniformMatrix4fv(this.postEffect.uniform.camMatP, false, this.matrix.p);
 
         // drawing command
         Gbuffer.render(gl);

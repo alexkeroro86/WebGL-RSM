@@ -309,15 +309,23 @@
         uniform sampler2D uCamMapPosV;
         uniform sampler2D uCamMapColor;
         uniform sampler2D uCamMapNorV;
-        uniform vec3 uEye;
+        uniform sampler2D uCamMapDepth;
+        
+        uniform mat4 uCamMatP;  // screen-space reflection
+
+        float linearizeDepth(float z) {
+            return (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
+        }
 
         // ************ Scree-Space Reflection ************
         // http://imanolfotia.com/blog/update/2017/03/11/ScreenSpaceReflections.html
 
         void main() {
             ivec2 fragCoord = ivec2(gl_FragCoord.xy);
+            float useTech = texelFetch(uCamMapNorV, fragCoord, 0).a;
 
-            fFragColor = texelFetch(uCamMapColor, fragCoord, 0);
+            float z = linearizeDepth(texelFetch(uCamMapDepth, fragCoord, 0).r);
+            fFragColor = vec4(z, z, z, 1.0f);
         }
     </script>
 
