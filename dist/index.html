@@ -216,6 +216,7 @@
             return color * INTENSITY;
         }
 
+        // in world-space
         void main() {
             ivec2 fragCoord = ivec2(gl_FragCoord.xy);
 
@@ -277,21 +278,20 @@
             // output channel
             fPosV = uCamMatV * vec4(posW, 1.f);
             fFragColor = cascadedIndicator + vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
-            fNorV = uCamMatV * vec4(Nn, 1.f);
+            fNorV = uCamMatV * vec4(Nn, 0.f);
             fNorV.w = useTech;
 
-            // ************ Visualization ************
-            // RSM
+            // visualization RSM
             if (uVisualRSM == 1) {
                 fFragColor = vec4(rsm, 1.f);
             }
-            // depth
+            // visualization depth
             if (uVisualCamMapDepth == 1) {
                 float z = texelFetch(uCamMapDepth, fragCoord, 0).r;
                 z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
                 fFragColor = vec4(z, z, z, 1.0f);
             }
-            // extra channel
+            // visualization extra channel
             if (uVisualTech == 1) {
                 fFragColor = vec4(useTech, 0.f, 0.f, 1.0f);
             }
@@ -313,19 +313,94 @@
         
         uniform mat4 uCamMatP;  // screen-space reflection
 
-        float linearizeDepth(float z) {
-            return (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
-        }
+        const float FAR_CLIP = 1800.f;
+        const float NEAR_CLIP = 0.1f;
+        const float MAX_DISTANCE = 1800.f;
+        const float MAX_STEP = 60.f;
+        const float MAX_SEARCH = 5.f;
+        const float THICKNESS = 0.f;
 
         // ************ Scree-Space Reflection ************
-        // http://imanolfotia.com/blog/update/2017/03/11/ScreenSpaceReflections.html
+        // https://zhuanlan.zhihu.com/p/49459651
+        
+        float linear01Depth(float z) {
+            return (2.f * NEAR_CLIP) / (NEAR_CLIP + FAR_CLIP - z * (FAR_CLIP - NEAR_CLIP));
+        }
+        bool intersectRay(float rayZ, vec2 projCoord) {
+            projCoord = projCoord * 0.5f + 0.5f;
+            float sceneZ = linear01Depth(texture(uCamMapDepth, projCoord).r);
+            return sceneZ - THICKNESS < rayZ;
+        }
+        bool traceRay(vec3 rayOrigin, vec3 rayDir, vec2 texelSize, out vec2 hitPixel, out vec3 debugColor) {
+            // discard over far plane
+            if (rayOrigin.z <= -FAR_CLIP) {
+                return false;
+            }
 
+            // clip to near plane
+            float rayLength = ((rayOrigin.z + MAX_DISTANCE * rayDir.z) > -NEAR_CLIP) ?
+                (-NEAR_CLIP - rayOrigin.z) / rayDir.z : MAX_DISTANCE;
+            vec3 rayEndPoint = rayOrigin + rayLength * rayDir;
+            
+            // end condition
+            vec4 rayStart = uCamMatP * vec4(rayOrigin, 1.f);
+            vec4 rayEnd = uCamMatP * vec4(rayEndPoint, 1.f);
+
+            // ray marching
+            for (float i = 1.f; i <= MAX_STEP; i+=1.f) {
+                // from ray view
+                vec3 p = rayOrigin.xyz + i / MAX_STEP * rayLength * rayDir;
+                float depth = (p.z + NEAR_CLIP) / (-FAR_CLIP + NEAR_CLIP);
+                // from camera view
+                vec4 projCoord = uCamMatP * vec4(p, 1.f);
+                projCoord.xyz /= projCoord.w;
+                if (projCoord.x < -1.f || projCoord.y < -1.f || projCoord.x > 1.f || projCoord.y > 1.f) {
+                    return false;
+                }
+
+                // hit
+                if (intersectRay(depth, projCoord.xy)) {
+                    hitPixel = projCoord.xy * 0.5f + 0.5f;
+                    debugColor = vec3(depth);
+                    return true;
+                }
+            }
+
+            // miss
+            return false;
+        }
+
+        // in camera-space
         void main() {
             ivec2 fragCoord = ivec2(gl_FragCoord.xy);
+            vec2 texelSize = vec2(1.f) / vec2(textureSize(uCamMapColor, 0));
             float useTech = texelFetch(uCamMapNorV, fragCoord, 0).a;
 
-            float z = linearizeDepth(texelFetch(uCamMapDepth, fragCoord, 0).r);
-            fFragColor = vec4(z, z, z, 1.0f);
+            // camera ray
+            vec4 camRay = vec4(vTexcoord * 2.f - 1.f, 1.f, 1.f);
+            camRay = inverse(uCamMatP) * camRay;
+            camRay.xyz /= camRay.w;
+
+            // ray origin
+            float depth = linear01Depth(texelFetch(uCamMapDepth, fragCoord, 0).r);
+            vec3 rayOrigin = depth * camRay.xyz;
+
+            // ray direction
+            vec3 norV = texelFetch(uCamMapNorV, fragCoord, 0).xyz;
+            vec3 reflectDir = normalize(reflect(rayOrigin, norV));
+
+            // ray marching
+            vec2 hitPixel;
+            vec3 debugColor;
+            if (useTech < 0.5f) {
+                fFragColor = texture(uCamMapColor, vTexcoord);
+            }
+            else if (traceRay(rayOrigin, reflectDir, texelSize, hitPixel, debugColor)) {
+                fFragColor = texture(uCamMapColor, hitPixel);
+            }
+            else {
+                fFragColor = texture(uCamMapColor, vTexcoord);
+            }
         }
     </script>
 
