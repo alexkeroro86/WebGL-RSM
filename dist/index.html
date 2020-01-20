@@ -316,13 +316,13 @@
         const float FAR_CLIP = 1800.f;
         const float NEAR_CLIP = 0.1f;
         const float MAX_DISTANCE = 1800.f;
-        const float MAX_STEP = 60.f;
+        const float MAX_STEP = 30.f;
         const float MAX_SEARCH = 5.f;
         const float THICKNESS = 0.f;
 
         // ************ Scree-Space Reflection ************
         // https://zhuanlan.zhihu.com/p/49459651
-        
+
         float linear01Depth(float z) {
             return (2.f * NEAR_CLIP) / (NEAR_CLIP + FAR_CLIP - z * (FAR_CLIP - NEAR_CLIP));
         }
@@ -330,6 +330,28 @@
             projCoord = projCoord * 0.5f + 0.5f;
             float sceneZ = linear01Depth(texture(uCamMapDepth, projCoord).r);
             return sceneZ - THICKNESS < rayZ;
+        }
+        bool hitTest(vec3 p, vec2 texelSize, vec2 prevProjCoord, out vec2 writeProjCoord, out vec2 hitPixel) {
+            // from ray view
+            float depth = (p.z + NEAR_CLIP) / (-FAR_CLIP + NEAR_CLIP);
+            // from camera view
+            vec4 projCoord = uCamMatP * vec4(p, 1.f);
+            projCoord.xyz /= projCoord.w;
+
+            // check cover at least one pixel
+            vec2 delta = projCoord.xy - prevProjCoord;
+            if (abs(delta.x) >= texelSize.x || abs(delta.y) >= texelSize.y) {
+                writeProjCoord = projCoord.xy;
+                if (projCoord.x < -1.f || projCoord.y < -1.f || projCoord.x > 1.f || projCoord.y > 1.f) {
+                    return false;
+                }
+                // check intersection between ray and camera views
+                if (intersectRay(depth, projCoord.xy)) {
+                    hitPixel = projCoord.xy * 0.5f + 0.5f;
+                    return true;
+                }
+            }
+            return false;
         }
         bool traceRay(vec3 rayOrigin, vec3 rayDir, vec2 texelSize, out vec2 hitPixel, out vec3 debugColor) {
             // discard over far plane
@@ -345,23 +367,23 @@
             // end condition
             vec4 rayStart = uCamMatP * vec4(rayOrigin, 1.f);
             vec4 rayEnd = uCamMatP * vec4(rayEndPoint, 1.f);
+            vec2 prevProjCoord = vec2(-99.f);
+            vec3 dD = 1.f / MAX_STEP * rayLength * rayDir;
 
             // ray marching
             for (float i = 1.f; i <= MAX_STEP; i+=1.f) {
                 // from ray view
-                vec3 p = rayOrigin.xyz + i / MAX_STEP * rayLength * rayDir;
-                float depth = (p.z + NEAR_CLIP) / (-FAR_CLIP + NEAR_CLIP);
-                // from camera view
-                vec4 projCoord = uCamMatP * vec4(p, 1.f);
-                projCoord.xyz /= projCoord.w;
-                if (projCoord.x < -1.f || projCoord.y < -1.f || projCoord.x > 1.f || projCoord.y > 1.f) {
-                    return false;
-                }
-
-                // hit
-                if (intersectRay(depth, projCoord.xy)) {
-                    hitPixel = projCoord.xy * 0.5f + 0.5f;
-                    debugColor = vec3(depth);
+                vec3 p = rayOrigin.xyz + i * dD;
+                
+                if (hitTest(p, texelSize, prevProjCoord, prevProjCoord, hitPixel)) {
+                    // binary search
+                    float multi = 0.5f;
+                    for (float j = 1.f; j <= MAX_SEARCH; j+=1.f) {
+                        if (hitTest(p - multi * dD, texelSize, prevProjCoord, prevProjCoord, hitPixel)) {
+                            p = p - multi * dD;
+                        }
+                        multi *= 0.5f;
+                    }
                     return true;
                 }
             }
