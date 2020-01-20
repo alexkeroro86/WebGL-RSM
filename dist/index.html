@@ -70,7 +70,7 @@
         }
     </script>
 
-    <script type='x-shader/x-vertex' id='deferred-vs'>
+    <script type='x-shader/x-vertex' id='quad-vs'>
         #version 300 es
 
         layout(location = 0) in vec2 iPosition;
@@ -87,7 +87,9 @@
         #version 300 es
         precision highp float;
 
-        out vec4 fFragColor;
+        layout(location = 0) out vec4 fPosV;
+        layout(location = 1) out vec4 fFragColor;
+        layout(location = 2) out vec4 fNorV;
 
         in vec2 vTexcoord;
 
@@ -108,12 +110,10 @@
         uniform float uCamCrange[NUM_CSM];
         uniform mat4 uLitCmatVP[NUM_CSM];
 
-        uniform mat4 uCamMatVP;  // screen-space reflection
-        uniform mat4 uCamMatV;
+        uniform mat4 uCamMatV;  // screen-space reflection
 
         uniform int uUseRSM;
         uniform int uUseCSM;
-        uniform int uUseSSR;
         uniform int uVisualCSM;
         uniform int uVisualRSM;
         uniform int uVisualTech;
@@ -216,31 +216,6 @@
             return color * INTENSITY;
         }
 
-        // ************ Scree-Space Reflection ************
-        // http://imanolfotia.com/blog/update/2017/03/11/ScreenSpaceReflections.html
-
-        const float STEP_SIZE = 1.0f;
-        const float MIN_STEP = 0.1f;
-        const int MAX_STEP = 30;
-        const int MAX_SEARCH = 5;
-        const float FALLOFF_EXP = 3.0f;
-
-        float camDistance(vec3 posW) {
-            // distance between [near, far]
-            return -vec4(uCamMatV * vec4(posW, 1.f)).z;
-        }
-        vec4 rayMarch(vec3 rayDir, inout vec3 rayOrigin, out float dDepth) {
-            return vec4(0.f);
-        }
-        vec3 SSR(vec3 posW, vec3 norW, vec3 camW) {
-            float useTech = texelFetch(uCamMapNormal, ivec2(gl_FragCoord.xy), 0).a;
-            if (useTech < 0.5f) {
-                return vec3(0.f);
-            }
-
-            return vec3(0.f);
-        }
-
         void main() {
             ivec2 fragCoord = ivec2(gl_FragCoord.xy);
 
@@ -248,6 +223,7 @@
             vec3 posW = texelFetch(uCamMapPosW, fragCoord, 0).rgb;
             vec4 posL = uLitMatVP * vec4(posW, 1.0f);
             vec3 Nn = texelFetch(uCamMapNormal, fragCoord, 0).rgb;
+            float useTech = texelFetch(uCamMapNormal, ivec2(gl_FragCoord.xy), 0).a;
 
             vec3 Vn = normalize(uEye - posW);
             vec3 Ln = normalize(uLight);
@@ -293,37 +269,55 @@
                 rsm = RSM(posW, posL, Nn);
             }
 
-            // screen-space reflection
-            vec3 ssr = vec3(0.f);
-            if (uUseSSR == 1) {
-                ssr = SSR(posW, Nn, Vn);
-                fFragColor = vec4(ssr, 1.f);
-                return;
-            }
-
             // blinn-phong
-            vec3 ambient = vec3(0.01f, 0.01f, 0.01f) + rsm + ssr;
+            vec3 ambient = vec3(0.01f, 0.01f, 0.01f) + rsm;
             vec3 diffuse = max(dot(Nn, Ln), 0.f) * albedo.rgb;
             vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(0.0f, 0.0f, 0.0f);
 
+            // output channel
+            fPosV = uCamMatV * vec4(posW, 1.f);
             fFragColor = cascadedIndicator + vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
+            fNorV = uCamMatV * vec4(Nn, 1.f);
+            fNorV.w = useTech;
 
-            // visualize RSM
+            // ************ Visualization ************
+            // RSM
             if (uVisualRSM == 1) {
                 fFragColor = vec4(rsm, 1.f);
             }
-            // visualize depth
+            // depth
             if (uVisualCamMapDepth == 1) {
                 float z = texelFetch(uCamMapDepth, fragCoord, 0).r;
                 z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
                 fFragColor = vec4(z, z, z, 1.0f);
             }
-            // visualize tech channel
+            // extra channel
             if (uVisualTech == 1) {
-                fFragColor = vec4(texelFetch(uCamMapNormal, fragCoord, 0).a, 0.f, 0.f, 1.0f);
+                fFragColor = vec4(useTech, 0.f, 0.f, 1.0f);
             }
-            // float z = texture(uLitCmapDepth[0], vTexcoord).r;
-            // fFragColor = vec4(z, z, z, 1.f);
+        }
+    </script>
+
+    <script type='x-shader/x-fragment' id='post-effect-fs'>
+        #version 300 es
+        precision highp float;
+
+        out vec4 fFragColor;
+
+        in vec2 vTexcoord;
+
+        uniform sampler2D uCamMapPosV;
+        uniform sampler2D uCamMapColor;
+        uniform sampler2D uCamMapNorV;
+        uniform vec3 uEye;
+
+        // ************ Scree-Space Reflection ************
+        // http://imanolfotia.com/blog/update/2017/03/11/ScreenSpaceReflections.html
+
+        void main() {
+            ivec2 fragCoord = ivec2(gl_FragCoord.xy);
+
+            fFragColor = texelFetch(uCamMapColor, fragCoord, 0);
         }
     </script>
 

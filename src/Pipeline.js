@@ -49,6 +49,7 @@ export default class Pipeline {
         };
         this.deferred = {
             program: null,
+            gbuffer: new Gbuffer(),
             uniform: {
                 camMapPosW: null,
                 camMapColor: null,
@@ -64,15 +65,13 @@ export default class Pipeline {
                 litMatVP: null,  // shadow mapping
                 useRSM: null,
                 useCSM: null,
-                useSSR: null,
                 visualCSM: null,
                 visualRSM: null,
                 visualTech: null,
                 visualCamMapDepth: null,
                 camCrange: [null, null, null],
                 litCmatVP: [null, null, null],
-                camMatVP: null,  // screen-space reflection
-                camMatV: null,
+                camMatV: null,  // screen-space reflection
             },
         };
         this.csm = {
@@ -80,6 +79,15 @@ export default class Pipeline {
             range: [-NEAR, -300.0, -900.0, -FAR],  // split frustum into (NUM_CSM+1) levels (flip-z)
             clip: [0, 0, 0, 0],
             vp: [new glm.mat4.create(), new glm.mat4.create(), new glm.mat4.create()], 
+        };
+        this.postEffect = {
+            program: null,
+            uniform: {
+                camMapPosV: null,
+                camMapColor: null,
+                camMapNorV: null,
+                eye: null,
+            },
         };
     }
 
@@ -101,7 +109,7 @@ export default class Pipeline {
         glm.mat4.ortho(this.light.p, -2000, 2000, -2000, 2000, 0.1, 2500.0);  // shadow mapping
         glm.mat4.lookAt(this.light.v, this.light.position, [0, 0, 0], [0, 1, 0]);
 
-        // // forward rendering
+        // // ************ forward rendering ************
         // this.blinnPhong.program = createShader(gl, document.getElementById('blinn-phong-vs').innerText, document.getElementById('blinn-phong-fs').innerText);
 
         // // uniform location
@@ -116,7 +124,7 @@ export default class Pipeline {
 
         // gl.useProgram(null);
 
-        // geometry buffer
+        // ************ geometry buffer ************
         this.gbuffer.program = createShader(gl, document.getElementById('gbuffer-vs').innerText, document.getElementById('gbuffer-fs').innerText);
 
         // uniform location
@@ -133,8 +141,8 @@ export default class Pipeline {
 
         gl.useProgram(null);
 
-        // deferred rendering
-        this.deferred.program = createShader(gl, document.getElementById('deferred-vs').innerText, document.getElementById('deferred-fs').innerText);
+        // ************ deferred rendering ************
+        this.deferred.program = createShader(gl, document.getElementById('quad-vs').innerText, document.getElementById('deferred-fs').innerText);
 
         // uniform location
         this.deferred.uniform.camMapPosW = gl.getUniformLocation(this.deferred.program, 'uCamMapPosW');
@@ -150,7 +158,6 @@ export default class Pipeline {
         this.deferred.uniform.litMatVP = gl.getUniformLocation(this.deferred.program, 'uLitMatVP');
         this.deferred.uniform.useRSM = gl.getUniformLocation(this.deferred.program, 'uUseRSM');
         this.deferred.uniform.useCSM = gl.getUniformLocation(this.deferred.program, 'uUseCSM');
-        this.deferred.uniform.useSSR = gl.getUniformLocation(this.deferred.program, 'uUseSSR');
         this.deferred.uniform.visualCSM = gl.getUniformLocation(this.deferred.program, 'uVisualCSM');
         this.deferred.uniform.visualRSM = gl.getUniformLocation(this.deferred.program, 'uVisualRSM');
         this.deferred.uniform.visualTech = gl.getUniformLocation(this.deferred.program, 'uVisualTech');
@@ -160,7 +167,6 @@ export default class Pipeline {
             this.deferred.uniform.camCrange[i] = gl.getUniformLocation(this.deferred.program, `uCamCrange[${i}]`);
             this.deferred.uniform.litCmatVP[i] = gl.getUniformLocation(this.deferred.program, `uLitCmatVP[${i}]`);
         }
-        this.deferred.uniform.camMatVP = gl.getUniformLocation(this.deferred.program, 'uCamMatVP');
         this.deferred.uniform.camMatV = gl.getUniformLocation(this.deferred.program, 'uCamMatV');
 
         // set uniform
@@ -179,7 +185,24 @@ export default class Pipeline {
 
         gl.useProgram(null);
 
-        // gbuffer
+        // ************ post effect ************
+        this.postEffect.program = createShader(gl, document.getElementById('quad-vs').innerText, document.getElementById('post-effect-fs').innerText);
+
+        // uniform location
+        this.postEffect.uniform.camMapPosV = gl.getUniformLocation(this.postEffect.program, 'uCamMapPosV');
+        this.postEffect.uniform.camMapColor = gl.getUniformLocation(this.postEffect.program, 'uCamMapColor');
+        this.postEffect.uniform.camMapNorV = gl.getUniformLocation(this.postEffect.program, 'uCamMapNorV');
+        this.postEffect.uniform.eye = gl.getUniformLocation(this.postEffect.program, 'uEye');
+
+        // set uniform
+        gl.useProgram(this.postEffect.program);
+        gl.uniform1i(this.postEffect.uniform.camMapPosV, 0);
+        gl.uniform1i(this.postEffect.uniform.camMapColor, 1);
+        gl.uniform1i(this.postEffect.uniform.camMapNorV, 2);
+
+        this.deferred.gbuffer.init(gl, gl.drawingBufferWidth, gl.drawingBufferHeight);
+
+        // ************ gbuffer ************
         this.gbuffer.camera.init(gl, gl.drawingBufferWidth, gl.drawingBufferHeight);
         this.gbuffer.light.init(gl, this.light.resolution, this.light.resolution);
         for (let i = 0; i < NUM_CSM; ++i) {
@@ -188,7 +211,6 @@ export default class Pipeline {
     }
 
     cascadedFrustum(gl) {
-        // CSM
         let camInvV = glm.mat4.create();
         glm.mat4.invert(camInvV, this.matrix.v);
         let aspect = gl.drawingBufferWidth / gl.drawingBufferHeight;
@@ -411,6 +433,8 @@ export default class Pipeline {
         }
     }
     deferredPass(gl, flag) {
+        this.deferred.gbuffer.bind(gl);
+
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -423,14 +447,13 @@ export default class Pipeline {
         gl.uniformMatrix4fv(this.deferred.uniform.litMatVP, false, vp);
         gl.uniform1i(this.deferred.uniform.useRSM, flag.useRSM);
         gl.uniform1i(this.deferred.uniform.useCSM, flag.useCSM);
-        gl.uniform1i(this.deferred.uniform.useSSR, flag.useSSR);
         gl.uniform1i(this.deferred.uniform.visualCSM, flag.visualCSM);
         gl.uniform1i(this.deferred.uniform.visualRSM, flag.visualRSM);
         gl.uniform1i(this.deferred.uniform.visualTech, flag.visualTech);
         gl.uniform1i(this.deferred.uniform.visualCamMapDepth, flag.visualCamMapDepth);
         gl.uniform3fv(this.deferred.uniform.light, this.light.position);
-
         gl.uniform3fv(this.deferred.uniform.eye, this.camera.move.position);
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.position);
         gl.activeTexture(gl.TEXTURE1);
@@ -458,10 +481,28 @@ export default class Pipeline {
         }
 
         // SSR
-        vp = glm.mat4.create();
-        glm.mat4.multiply(vp, this.matrix.p, this.matrix.v);
-        gl.uniformMatrix4fv(this.deferred.uniform.camMatVP, false, vp);
         gl.uniformMatrix4fv(this.deferred.uniform.camMatV, false, this.matrix.v);
+
+        // drawing command
+        Gbuffer.render(gl);
+
+        this.deferred.gbuffer.unbind(gl);
+    }
+
+    postPass(gl, flag) {
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        gl.useProgram(this.postEffect.program);
+
+        // set uniform
+        gl.uniform3fv(this.postEffect.uniform.eye, this.camera.move.position);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.position);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.color);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.normal);
 
         // drawing command
         Gbuffer.render(gl);
@@ -481,6 +522,7 @@ export default class Pipeline {
         this.cameraPass(gl);
         this.lightPass(gl, flag);
         this.deferredPass(gl, flag);
+        this.postPass(gl, flag);
     }
 
     resize(gl) {
