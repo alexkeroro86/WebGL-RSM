@@ -83,7 +83,7 @@ export default class Pipeline {
         this.postEffect = {
             program: null,
             uniform: {
-                camMapPosV: null,
+                camMapAlbedo: null,
                 camMapColor: null,
                 camMapNorV: null,
                 camMapDepth: null,
@@ -190,7 +190,7 @@ export default class Pipeline {
         this.postEffect.program = createShader(gl, document.getElementById('quad-vs').innerText, document.getElementById('post-effect-fs').innerText);
 
         // uniform location
-        this.postEffect.uniform.camMapPosV = gl.getUniformLocation(this.postEffect.program, 'uCamMapPosV');
+        this.postEffect.uniform.camMapAlbedo = gl.getUniformLocation(this.postEffect.program, 'uCamMapAlbedo');
         this.postEffect.uniform.camMapColor = gl.getUniformLocation(this.postEffect.program, 'uCamMapColor');
         this.postEffect.uniform.camMapNorV = gl.getUniformLocation(this.postEffect.program, 'uCamMapNorV');
         this.postEffect.uniform.camMapDepth = gl.getUniformLocation(this.postEffect.program, 'uCamMapDepth');
@@ -198,7 +198,7 @@ export default class Pipeline {
 
         // set uniform
         gl.useProgram(this.postEffect.program);
-        gl.uniform1i(this.postEffect.uniform.camMapPosV, 0);
+        gl.uniform1i(this.postEffect.uniform.camMapAlbedo, 0);
         gl.uniform1i(this.postEffect.uniform.camMapColor, 1);
         gl.uniform1i(this.postEffect.uniform.camMapNorV, 2);
         gl.uniform1i(this.postEffect.uniform.camMapDepth, 3);

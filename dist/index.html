@@ -87,7 +87,7 @@
         #version 300 es
         precision highp float;
 
-        layout(location = 0) out vec4 fPosV;
+        layout(location = 0) out vec4 fAlbedo;
         layout(location = 1) out vec4 fFragColor;
         layout(location = 2) out vec4 fNorV;
 
@@ -276,7 +276,7 @@
             vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(0.0f, 0.0f, 0.0f);
 
             // output channel
-            fPosV = uCamMatV * vec4(posW, 1.f);
+            fAlbedo = albedo;
             fFragColor = cascadedIndicator + vec4(ambient + shadowFactor * (diffuse + specular), 1.0f);
             fNorV = uCamMatV * vec4(Nn, 0.f);
             fNorV.w = useTech;
@@ -306,7 +306,7 @@
 
         in vec2 vTexcoord;
 
-        uniform sampler2D uCamMapPosV;
+        uniform sampler2D uCamMapAlbedo;
         uniform sampler2D uCamMapColor;
         uniform sampler2D uCamMapNorV;
         uniform sampler2D uCamMapDepth;
@@ -326,12 +326,12 @@
         float linear01Depth(float z) {
             return (2.f * NEAR_CLIP) / (NEAR_CLIP + FAR_CLIP - z * (FAR_CLIP - NEAR_CLIP));
         }
-        bool intersectRay(float rayZ, vec2 projCoord) {
+        bool intersect(float rayZ, vec2 projCoord) {
             projCoord = projCoord * 0.5f + 0.5f;
             float sceneZ = linear01Depth(texture(uCamMapDepth, projCoord).r);
             return sceneZ - THICKNESS < rayZ;
         }
-        bool hitTest(vec3 p, vec2 texelSize, vec2 prevProjCoord, out vec2 writeProjCoord, out vec2 hitPixel) {
+        bool hit(vec3 p, vec2 texelSize, vec2 prevProjCoord, out vec2 writeProjCoord, out vec2 hitPixel) {
             // from ray view
             float depth = (p.z + NEAR_CLIP) / (-FAR_CLIP + NEAR_CLIP);
             // from camera view
@@ -346,7 +346,7 @@
                     return false;
                 }
                 // check intersection between ray and camera views
-                if (intersectRay(depth, projCoord.xy)) {
+                if (intersect(depth, projCoord.xy)) {
                     hitPixel = projCoord.xy * 0.5f + 0.5f;
                     return true;
                 }
@@ -375,11 +375,11 @@
                 // from ray view
                 vec3 p = rayOrigin.xyz + i * dD;
                 
-                if (hitTest(p, texelSize, prevProjCoord, prevProjCoord, hitPixel)) {
+                if (hit(p, texelSize, prevProjCoord, prevProjCoord, hitPixel)) {
                     // binary search
                     float multi = 0.5f;
                     for (float j = 1.f; j <= MAX_SEARCH; j+=1.f) {
-                        if (hitTest(p - multi * dD, texelSize, prevProjCoord, prevProjCoord, hitPixel)) {
+                        if (hit(p - multi * dD, texelSize, prevProjCoord, prevProjCoord, hitPixel)) {
                             p = p - multi * dD;
                         }
                         multi *= 0.5f;
@@ -391,6 +391,40 @@
             // miss
             return false;
         }
+        vec3 fresnel(float cosTheta, vec3 F0) {
+            return F0 + (1.f - F0) * pow(1.f - cosTheta, 5.f);
+        }
+
+        vec3 SSR(ivec2 fragCoord, vec2 texelSize) {
+            // camera ray in clip space (u, v, z), z: [-1, 1]
+            vec4 camRay = vec4(vTexcoord * 2.f - 1.f, 1.f, 1.f); // initial to far plane
+            camRay = inverse(uCamMatP) * camRay;
+            camRay.xyz /= camRay.w;
+
+            // ray origin
+            float depth = linear01Depth(texelFetch(uCamMapDepth, fragCoord, 0).r);
+            vec3 rayOrigin = depth * camRay.xyz; // convert to neasest point in camera view
+
+            // ray direction
+            vec3 norV = texelFetch(uCamMapNorV, fragCoord, 0).xyz;
+            vec3 reflectDir = normalize(reflect(normalize(rayOrigin), normalize(norV)));
+
+            // ray marching
+            vec2 hitPixel;
+            vec3 debugColor;
+            vec3 reflectColor = vec3(0.f);
+            if (traceRay(rayOrigin, reflectDir, texelSize, hitPixel, debugColor)) {
+                reflectColor = texture(uCamMapColor, hitPixel).rgb;
+    
+                // mix
+                vec3 F0 = vec3(0.04f);
+                F0 = mix(F0, texelFetch(uCamMapAlbedo, fragCoord, 0).rgb, 0.5f);
+                vec3 fresnel = fresnel(max(dot(normalize(rayOrigin), normalize(reflectDir)), 0.f), F0);
+                reflectColor *= fresnel;
+            }
+
+            return reflectColor;
+        }
 
         // in camera-space
         void main() {
@@ -398,31 +432,13 @@
             vec2 texelSize = vec2(1.f) / vec2(textureSize(uCamMapColor, 0));
             float useTech = texelFetch(uCamMapNorV, fragCoord, 0).a;
 
-            // camera ray
-            vec4 camRay = vec4(vTexcoord * 2.f - 1.f, 1.f, 1.f);
-            camRay = inverse(uCamMatP) * camRay;
-            camRay.xyz /= camRay.w;
-
-            // ray origin
-            float depth = linear01Depth(texelFetch(uCamMapDepth, fragCoord, 0).r);
-            vec3 rayOrigin = depth * camRay.xyz;
-
-            // ray direction
-            vec3 norV = texelFetch(uCamMapNorV, fragCoord, 0).xyz;
-            vec3 reflectDir = normalize(reflect(rayOrigin, norV));
-
-            // ray marching
-            vec2 hitPixel;
-            vec3 debugColor;
-            if (useTech < 0.5f) {
-                fFragColor = texture(uCamMapColor, vTexcoord);
+            vec3 reflectColor = vec3(0.f);
+            if (useTech > 0.5f) {
+                reflectColor = SSR(fragCoord, texelSize);
             }
-            else if (traceRay(rayOrigin, reflectDir, texelSize, hitPixel, debugColor)) {
-                fFragColor = texture(uCamMapColor, hitPixel);
-            }
-            else {
-                fFragColor = texture(uCamMapColor, vTexcoord);
-            }
+            
+            vec3 originColor = texelFetch(uCamMapColor, fragCoord, 0).rgb;
+            fFragColor = vec4(originColor + reflectColor, 1.f);
         }
     </script>
 
