@@ -14,6 +14,8 @@
 * Cascaded shadow mapping (CSM)
 * Blinn-phong shading model
 * RSM
+* Screen-space reflection (SSR)
+* Post-processing
 
 ## Download
 
