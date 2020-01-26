@@ -53,13 +53,15 @@ function initWebGL() {
     // gui
     gui = new Dat.GUI();
     gui.domElement.classList.add('navbar');
-    gui.add(flag, 'useRSM');
-    gui.add(flag, 'useCSM');
-    gui.add(flag, 'useSSR');
-    gui.add(flag, 'visualCSM');
-    gui.add(flag, 'visualRSM');
-    gui.add(flag, 'visualTech');
-    gui.add(flag, 'visualCamMapDepth');
+    let ctrlFolder = gui.addFolder('Control');
+    ctrlFolder.add(flag, 'useRSM');
+    ctrlFolder.add(flag, 'useCSM');
+    ctrlFolder.add(flag, 'useSSR');
+    ctrlFolder.add(flag, 'visualCSM');
+    ctrlFolder.add(flag, 'visualRSM');
+    ctrlFolder.add(flag, 'visualTech');
+    ctrlFolder.add(flag, 'visualCamMapDepth');
+    ctrlFolder.open();
     let litFolder = gui.addFolder('Light');
     litFolder.add(flag, 'litPosX', -2000, 2000);
     litFolder.add(flag, 'litPosY', -2000, 2000);

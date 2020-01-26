@@ -88,6 +88,7 @@ export default class Pipeline {
                 camMapNorV: null,
                 camMapDepth: null,
                 camMatP: null,
+                useSSR: null,
             },
         };
     }
@@ -195,6 +196,7 @@ export default class Pipeline {
         this.postEffect.uniform.camMapNorV = gl.getUniformLocation(this.postEffect.program, 'uCamMapNorV');
         this.postEffect.uniform.camMapDepth = gl.getUniformLocation(this.postEffect.program, 'uCamMapDepth');
         this.postEffect.uniform.camMatP = gl.getUniformLocation(this.postEffect.program, 'uCamMatP');
+        this.postEffect.uniform.useSSR = gl.getUniformLocation(this.postEffect.program, 'uUseSSR');
 
         // set uniform
         gl.useProgram(this.postEffect.program);
@@ -499,6 +501,8 @@ export default class Pipeline {
         gl.useProgram(this.postEffect.program);
 
         // set uniform
+        gl.uniform1i(this.postEffect.uniform.useSSR, flag.useSSR);
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.position);
         gl.activeTexture(gl.TEXTURE1);

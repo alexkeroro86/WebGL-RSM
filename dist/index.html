@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>WebGL - RSM</title>
+    <title>WebGL - Demo</title>
 
     <style>
         html, body {
@@ -312,6 +312,7 @@
         uniform sampler2D uCamMapDepth;
         
         uniform mat4 uCamMatP;  // screen-space reflection
+        uniform int uUseSSR;
 
         const float FAR_CLIP = 1800.f;
         const float NEAR_CLIP = 0.1f;
@@ -433,7 +434,7 @@
             float useTech = texelFetch(uCamMapNorV, fragCoord, 0).a;
 
             vec3 reflectColor = vec3(0.f);
-            if (useTech > 0.5f) {
+            if (useTech > 0.5f && uUseSSR == 1) {
                 reflectColor = SSR(fragCoord, texelSize);
             }
             
