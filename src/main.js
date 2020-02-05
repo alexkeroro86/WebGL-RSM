@@ -19,6 +19,7 @@ var flag = {
     visualRSM: false,
     visualTech: false,
     visualCamMapDepth: false,
+    visualPass: 2,
     litPosX: 100.0,
     litPosY: 2000.0,
     litPosZ: 100.0,
@@ -60,7 +61,7 @@ function initWebGL() {
     ctrlFolder.add(flag, 'visualCSM');
     ctrlFolder.add(flag, 'visualRSM');
     ctrlFolder.add(flag, 'visualTech');
-    ctrlFolder.add(flag, 'visualCamMapDepth');
+    ctrlFolder.add(flag, 'visualPass', { Light: 0, Deferred: 1, Post: 2 });
     ctrlFolder.open();
     let litFolder = gui.addFolder('Light');
     litFolder.add(flag, 'litPosX', -2000, 2000);

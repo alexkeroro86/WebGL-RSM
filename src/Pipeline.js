@@ -68,7 +68,6 @@ export default class Pipeline {
                 visualCSM: null,
                 visualRSM: null,
                 visualTech: null,
-                visualCamMapDepth: null,
                 camCrange: [null, null, null],
                 litCmatVP: [null, null, null],
                 camMatV: null,  // screen-space reflection
@@ -89,6 +88,9 @@ export default class Pipeline {
                 camMapDepth: null,
                 camMatP: null,
                 useSSR: null,
+                visualPass: null,
+                camMapPosW: null,
+                camMapNorW: null,
             },
         };
     }
@@ -163,7 +165,6 @@ export default class Pipeline {
         this.deferred.uniform.visualCSM = gl.getUniformLocation(this.deferred.program, 'uVisualCSM');
         this.deferred.uniform.visualRSM = gl.getUniformLocation(this.deferred.program, 'uVisualRSM');
         this.deferred.uniform.visualTech = gl.getUniformLocation(this.deferred.program, 'uVisualTech');
-        this.deferred.uniform.visualCamMapDepth = gl.getUniformLocation(this.deferred.program, 'uVisualCamMapDepth');
         for (let i = 0; i < NUM_CSM; ++i) {
             this.deferred.uniform.litCmapDepth[i] = gl.getUniformLocation(this.deferred.program, `uLitCmapDepth[${i}]`);
             this.deferred.uniform.camCrange[i] = gl.getUniformLocation(this.deferred.program, `uCamCrange[${i}]`);
@@ -197,6 +198,9 @@ export default class Pipeline {
         this.postEffect.uniform.camMapDepth = gl.getUniformLocation(this.postEffect.program, 'uCamMapDepth');
         this.postEffect.uniform.camMatP = gl.getUniformLocation(this.postEffect.program, 'uCamMatP');
         this.postEffect.uniform.useSSR = gl.getUniformLocation(this.postEffect.program, 'uUseSSR');
+        this.postEffect.uniform.visualPass = gl.getUniformLocation(this.postEffect.program, 'uVisualPass');
+        this.postEffect.uniform.camMapPosW = gl.getUniformLocation(this.postEffect.program, 'uCamMapPosW');
+        this.postEffect.uniform.camMapNorW = gl.getUniformLocation(this.postEffect.program, 'uCamMapNorW');
 
         // set uniform
         gl.useProgram(this.postEffect.program);
@@ -204,6 +208,8 @@ export default class Pipeline {
         gl.uniform1i(this.postEffect.uniform.camMapColor, 1);
         gl.uniform1i(this.postEffect.uniform.camMapNorV, 2);
         gl.uniform1i(this.postEffect.uniform.camMapDepth, 3);
+        gl.uniform1i(this.postEffect.uniform.camMapPosW, 4);
+        gl.uniform1i(this.postEffect.uniform.camMapNorW, 5);
 
         this.deferred.gbuffer.init(gl, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
@@ -325,6 +331,7 @@ export default class Pipeline {
         // drawing command
         this.dragon.render(gl);
     }
+    // record depth in light view
     cameraPass(gl) {
         this.gbuffer.camera.bind(gl);
 
@@ -361,6 +368,7 @@ export default class Pipeline {
 
         this.gbuffer.camera.unbind(gl);
     }
+    // record gbuffer
     lightPass(gl, flag) {
         // reflective shadow mapping
         this.gbuffer.light.bind(gl);
@@ -437,6 +445,7 @@ export default class Pipeline {
             this.csm.gbuffer[i].unbind(gl);
         }
     }
+    // shading + rsm
     deferredPass(gl, flag) {
         this.deferred.gbuffer.bind(gl);
 
@@ -455,7 +464,6 @@ export default class Pipeline {
         gl.uniform1i(this.deferred.uniform.visualCSM, flag.visualCSM);
         gl.uniform1i(this.deferred.uniform.visualRSM, flag.visualRSM);
         gl.uniform1i(this.deferred.uniform.visualTech, flag.visualTech);
-        gl.uniform1i(this.deferred.uniform.visualCamMapDepth, flag.visualCamMapDepth);
         gl.uniform3fv(this.deferred.uniform.light, this.light.position);
         gl.uniform3fv(this.deferred.uniform.eye, this.camera.move.position);
 
@@ -493,7 +501,7 @@ export default class Pipeline {
 
         this.deferred.gbuffer.unbind(gl);
     }
-
+    // image post processing
     postPass(gl, flag) {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -502,6 +510,7 @@ export default class Pipeline {
 
         // set uniform
         gl.uniform1i(this.postEffect.uniform.useSSR, flag.useSSR);
+        gl.uniform1i(this.postEffect.uniform.visualPass, flag.visualPass);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.position);
@@ -511,6 +520,12 @@ export default class Pipeline {
         gl.bindTexture(gl.TEXTURE_2D, this.deferred.gbuffer.renderTarget.normal);
         gl.activeTexture(gl.TEXTURE3);
         gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.depth);
+
+        // visualize passes
+        gl.activeTexture(gl.TEXTURE4);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.position);
+        gl.activeTexture(gl.TEXTURE5);
+        gl.bindTexture(gl.TEXTURE_2D, this.gbuffer.camera.renderTarget.normal);
 
         // SSR
         gl.uniformMatrix4fv(this.postEffect.uniform.camMatP, false, this.matrix.p);

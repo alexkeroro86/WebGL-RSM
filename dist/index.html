@@ -117,7 +117,6 @@
         uniform int uVisualCSM;
         uniform int uVisualRSM;
         uniform int uVisualTech;
-        uniform int uVisualCamMapDepth;
 
         const float PI = 3.1415926f;
 
@@ -285,12 +284,6 @@
             if (uVisualRSM == 1) {
                 fFragColor = vec4(rsm, 1.f);
             }
-            // visualization depth
-            if (uVisualCamMapDepth == 1) {
-                float z = texelFetch(uCamMapDepth, fragCoord, 0).r;
-                z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
-                fFragColor = vec4(z, z, z, 1.0f);
-            }
             // visualization extra channel
             if (uVisualTech == 1) {
                 fFragColor = vec4(useTech, 0.f, 0.f, 1.0f);
@@ -313,6 +306,11 @@
         
         uniform mat4 uCamMatP;  // screen-space reflection
         uniform int uUseSSR;
+        
+        // visualize each pass
+        uniform int uVisualPass;
+        uniform sampler2D uCamMapPosW;
+        uniform sampler2D uCamMapNorW;
 
         const float FAR_CLIP = 1800.f;
         const float NEAR_CLIP = 0.1f;
@@ -433,13 +431,45 @@
             vec2 texelSize = vec2(1.f) / vec2(textureSize(uCamMapColor, 0));
             float useTech = texelFetch(uCamMapNorV, fragCoord, 0).a;
 
-            vec3 reflectColor = vec3(0.f);
-            if (useTech > 0.5f && uUseSSR == 1) {
-                reflectColor = SSR(fragCoord, texelSize);
+            // FIXME: use 'gl_FragCoord' instead of 'vTexcoord' to avoid padding
+            // in browser when opening the debug console
+
+            // visualize passes
+
+            // gbuffer
+            if (uVisualPass == 0) {
+                vec2 splitId = floor(vTexcoord * 2.f);
+                vec2 splitUv = vTexcoord * 2.f - splitId;
+
+                if (splitId.x == 0.f && splitId.y == 0.f) {
+                    fFragColor = vec4(texture(uCamMapPosW, splitUv).rgb, 1.f);
+                }
+                else if (splitId.x == 1.f && splitId.y == 0.f) {
+                    fFragColor = vec4(texture(uCamMapNorW, splitUv).rgb * 0.5f + 0.5f, 1.f);
+                }
+                else if (splitId.x == 0.f && splitId.y == 1.f) {
+                    fFragColor = vec4(texture(uCamMapAlbedo, splitUv).rgb, 1.f);
+                }
+                else if (splitId.x == 1.f && splitId.y == 1.f) {
+                    float z = texture(uCamMapDepth, splitUv).r;
+                    z = (2.0f * 0.1f) / (1800.0f + 0.1f - z * (1800.0f - 0.1f));
+                    fFragColor = vec4(z, z, z, 1.0f);
+                }
             }
-            
-            vec3 originColor = texelFetch(uCamMapColor, fragCoord, 0).rgb;
-            fFragColor = vec4(originColor + reflectColor, 1.f);
+            // lighting
+            else if (uVisualPass == 1) {
+                fFragColor = vec4(texelFetch(uCamMapColor, fragCoord, 0).rgb, 1.f);
+            }
+            // post effect
+            else if (uVisualPass == 2) {
+                vec3 reflectColor = vec3(0.f);
+                if (useTech > 0.5f && uUseSSR == 1) {
+                    reflectColor = SSR(fragCoord, texelSize);
+                }
+                
+                vec3 originColor = texelFetch(uCamMapColor, fragCoord, 0).rgb;
+                fFragColor = vec4(originColor + reflectColor, 1.f);
+            }
         }
     </script>
 
