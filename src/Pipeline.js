@@ -14,7 +14,7 @@ export default class Pipeline {
     constructor() {
         this.dragon = new Model();
         this.sponza = new Model();
-        // forward rendering
+        // deprecated forward rendering
         // this.blinnPhong = {
         //     program: null,
         //     uniform: {
@@ -113,7 +113,7 @@ export default class Pipeline {
         glm.mat4.ortho(this.light.p, -2000, 2000, -2000, 2000, 0.1, 2500.0);  // shadow mapping
         glm.mat4.lookAt(this.light.v, this.light.position, [0, 0, 0], [0, 1, 0]);
 
-        // // ************ forward rendering ************
+        // // ************ deprecated forward rendering ************
         // this.blinnPhong.program = createShader(gl, document.getElementById('blinn-phong-vs').innerText, document.getElementById('blinn-phong-fs').innerText);
 
         // // uniform location
@@ -298,6 +298,7 @@ export default class Pipeline {
         }
     }
 
+    // Note: deprecated forward rendering
     forwardPass(gl) {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
