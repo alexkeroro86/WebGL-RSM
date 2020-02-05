@@ -9,7 +9,7 @@
     "dev": "webpack-dev-server",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "CGVLab",
+  "author": "alexkeroro86",
   "license": "MIT",
   "devDependencies": {
     "webpack": "^4.41.2",

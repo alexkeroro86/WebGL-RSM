@@ -25,6 +25,9 @@ module.exports = {
     },
     devServer: {
         contentBase: path.join(__dirname, './dist'),
+        writeToDisk: (filePath) => {
+            return /bundle.js/.test(filePath);
+        },
         compress: true,
         hot: true,
         port: 9000
