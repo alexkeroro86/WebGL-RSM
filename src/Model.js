@@ -61,6 +61,8 @@ export default class Model {
                 this.export(gl, name, material, v, vt, vn, vertex_idx, normal_idx, texcoord_idx, num_face);
 
                 // flush
+                // Note: v, vt, vn data are global wise, that is, one OBJ file stores
+                // all v, vt, vn in each array once so that index will be correct
                 // v = [];
                 // vt = [];
                 // vn = [];
@@ -229,6 +231,8 @@ export default class Model {
         this.meshes.push(mesh);
 
         // flush
+        // Note: v, vt, vn data are global wise, that is, one OBJ file stores
+        // all v, vt, vn in each array once so that index will be correct
         // v = [];
         // vt = [];
         // vn = [];
