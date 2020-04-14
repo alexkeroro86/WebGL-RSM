@@ -21,6 +21,10 @@
 
 * Put required asset [this](https://drive.google.com/file/d/1hSmUtQIIf_ZSIEKTMU4_N9RaoOB4Q54p/view?usp=sharing) in `dist` folder.
 
+## Testing
+
+* Run `npm install` in the root folder. Then, run `npm run dev`.
+
 ## Reference
 
 * Dachsbacher, Carsten, and Marc Stamminger. "Reflective shadow maps." Proceedings of the 2005 symposium on Interactive 3D graphics and games. 2005. [PDF](http://www.klayge.org/material/3_12/GI/rsm.pdf)
