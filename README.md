@@ -1,4 +1,6 @@
-# Reflective Shadow Map (RSM)
+# WebGL2 Demo (CSM, RSM, SSR)
+
+![demo-img](misc/demo.png)
 
 ## Library
 
