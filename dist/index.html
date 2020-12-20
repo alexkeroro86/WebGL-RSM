@@ -361,21 +361,22 @@
             // clip to near plane
             float rayLength = ((rayOrigin.z + MAX_DISTANCE * rayDir.z) > -NEAR_CLIP) ?
                 (-NEAR_CLIP - rayOrigin.z) / rayDir.z : MAX_DISTANCE;
-            vec3 rayEndPoint = rayOrigin + rayLength * rayDir;
+            //vec3 rayEndPoint = rayOrigin + rayLength * rayDir;
             
             // end condition
-            vec4 rayStart = uCamMatP * vec4(rayOrigin, 1.f);
-            vec4 rayEnd = uCamMatP * vec4(rayEndPoint, 1.f);
+            //vec4 rayStart = uCamMatP * vec4(rayOrigin, 1.f);
+            //vec4 rayEnd = uCamMatP * vec4(rayEndPoint, 1.f);
+            // delta step
             vec2 prevProjCoord = vec2(-99.f);
             vec3 dD = 1.f / MAX_STEP * rayLength * rayDir;
 
             // ray marching
             for (float i = 1.f; i <= MAX_STEP; i+=1.f) {
-                // from ray view
+                // one step in view space
                 vec3 p = rayOrigin.xyz + i * dD;
                 
                 if (hit(p, texelSize, prevProjCoord, prevProjCoord, hitPixel)) {
-                    // binary search
+                    // binary search on near surface
                     float multi = 0.5f;
                     for (float j = 1.f; j <= MAX_SEARCH; j+=1.f) {
                         if (hit(p - multi * dD, texelSize, prevProjCoord, prevProjCoord, hitPixel)) {

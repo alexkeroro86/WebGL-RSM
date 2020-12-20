@@ -229,7 +229,7 @@ export default class Pipeline {
         let tanHalfVFOV = Math.tan(FOV * 0.5);
 
         for (let i = 0; i < NUM_CSM; ++i) {
-            // change to clip space
+            // change to clip space for shader uniform buffer
             let view = glm.vec4.fromValues(0.0, 0.0, this.csm.range[i + 1], 1.0);
             let clip = glm.vec4.create();
             glm.vec4.transformMat4(clip, view, this.matrix.p);
