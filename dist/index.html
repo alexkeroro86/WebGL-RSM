@@ -270,7 +270,7 @@
             }
 
             // blinn-phong
-            vec3 ambient = vec3(0.01f, 0.01f, 0.01f) + rsm;
+            vec3 ambient = vec3(0.1f, 0.1f, 0.1f) * albedo.rgb + rsm;
             vec3 diffuse = max(dot(Nn, Ln), 0.f) * albedo.rgb;
             vec3 specular = pow(max(dot(Nn, Hn), 0.f), 20.0f) * vec3(0.0f, 0.0f, 0.0f);
 
